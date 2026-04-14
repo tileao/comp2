@@ -1071,16 +1071,28 @@ function invalidateAdcDecisionPanel(reason = 'seleção alterada') {
 
 async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
   const seq = ++vizRuntime.adcDecisionSeq;
-  const input = collectInputs();
-  const snap = getSavedResultsSnapshot();
-  const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
+  const isBaseChange = /base/i.test(String(reason || ''));
 
   markAdcDirty(reason);
   invalidateAdcDecisionPanel(reason);
+  pushSharedContext(collectInputs());
+
+  if (isBaseChange) {
+    try {
+      await syncAdcSelection({ renderPreviewIfActive: true });
+    } catch (error) {
+      console.warn('Falha ao sincronizar a ADC após trocar a base.', error);
+    }
+    if (seq !== vizRuntime.adcDecisionSeq) return;
+  }
+
+  const input = collectInputs();
+  const snap = getSavedResultsSnapshot();
+  const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
   pushSharedContext(input);
 
   if (!canReuse) {
-    syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
+    if (!isBaseChange) syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
     return;
   }
 
