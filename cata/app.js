@@ -2332,15 +2332,15 @@ function bindEvents() {
   els.base.addEventListener('change', () => { refreshAdcDecisionForSelection('a base').catch(console.warn); });
   els.departure.addEventListener('change', () => { refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
   [els.aircraftSet, els.config, els.pa, els.oat, els.weight, els.wind].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
-  els.openWATBtn.addEventListener('click', () => {
+  els.openWATBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../wat/?back=1&return=' + encodeURIComponent('../cata/');
   });
-  els.openRTOBtn.addEventListener('click', () => {
+  els.openRTOBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../rto/?back=1&return=' + encodeURIComponent('../cata/');
   });
-  els.openADCBtn.addEventListener('click', () => {
+  els.openADCBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../adc/?back=1&return=' + encodeURIComponent('../cata/');
   });
