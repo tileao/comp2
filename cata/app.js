@@ -111,7 +111,10 @@ function clearAllModeDirty() {
 }
 
 function setViewerLoading(title = 'Atualizando visualização', sub = 'Aguarde a carta ser atualizada.') {
-  if (els.viewerPane) els.viewerPane.classList.remove('is-empty');
+  if (els.viewerPane) {
+    els.viewerPane.classList.remove('is-empty');
+    els.viewerPane.classList.remove('mode-adc-live');
+  }
   if (els.vizPlaceholder) {
     restoreViewerPlaceholder();
   els.vizPlaceholder.hidden = false;
@@ -130,6 +133,31 @@ function restoreViewerPlaceholder() {
     <div class="placeholder-title">Visualização em branco</div>
     <div class="placeholder-sub">A carta aparece após preencher e calcular, ou ao escolher uma visualização.</div>
   `;
+}
+
+function setLiveViewerMode(mode = '') {
+  if (!els.viewerPane) return;
+  const isAdcLive = mode === 'adc';
+  els.viewerPane.classList.toggle('mode-adc-live', isAdcLive);
+  if (isAdcLive) {
+    if (els.vizPreviewCanvas) els.vizPreviewCanvas.hidden = true;
+    if (els.vizPlaceholder) els.vizPlaceholder.hidden = true;
+    const frame = adcFrame;
+    if (frame) {
+      frame.classList.add('active');
+      frame.style.position = 'relative';
+      frame.style.left = '0';
+      frame.style.top = '0';
+      frame.style.width = '100%';
+      frame.style.visibility = 'visible';
+      frame.style.opacity = '1';
+      frame.style.pointerEvents = 'auto';
+      frame.style.border = '0';
+      frame.style.display = 'block';
+      if (!frame.style.height) frame.style.height = '1800px';
+    }
+    syncViewerStageHeight(null);
+  }
 }
 
 function markAdcDirty(reason = '') {
@@ -1539,6 +1567,7 @@ function resizeActiveFrame(mode) {
 }
 
 function clearVisualization() {
+  setLiveViewerMode('');
   Object.values(frameMap).forEach(frame => frame.classList.remove('active'));
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.classList.remove('active'));
   els.viewerPane.classList.add('is-empty');
@@ -2202,6 +2231,14 @@ function setVisualization(mode, forceShow = true) {
     if (renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== mode) return;
     if (vizRuntime.modeDirty?.[mode] && mode !== 'adc') return;
 
+    if (mode === 'adc') {
+      setLiveViewerMode('adc');
+      clearModeDirty(mode);
+      renderVisualizationMeta(mode);
+      return;
+    }
+
+    setLiveViewerMode('');
     await renderPreview(mode);
     if (renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== mode) return;
 
