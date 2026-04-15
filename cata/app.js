@@ -111,7 +111,10 @@ function clearAllModeDirty() {
 }
 
 function setViewerLoading(title = 'Atualizando visualização', sub = 'Aguarde a carta ser atualizada.') {
-  if (els.viewerPane) els.viewerPane.classList.remove('is-empty');
+  if (els.viewerPane) {
+    els.viewerPane.classList.remove('is-empty');
+    els.viewerPane.classList.remove('mode-adc-live');
+  }
   if (els.vizPlaceholder) {
     restoreViewerPlaceholder();
   els.vizPlaceholder.hidden = false;
@@ -130,6 +133,31 @@ function restoreViewerPlaceholder() {
     <div class="placeholder-title">Visualização em branco</div>
     <div class="placeholder-sub">A carta aparece após preencher e calcular, ou ao escolher uma visualização.</div>
   `;
+}
+
+function setLiveViewerMode(mode = '') {
+  if (!els.viewerPane) return;
+  const isAdcLive = mode === 'adc';
+  els.viewerPane.classList.toggle('mode-adc-live', isAdcLive);
+  if (isAdcLive) {
+    if (els.vizPreviewCanvas) els.vizPreviewCanvas.hidden = true;
+    if (els.vizPlaceholder) els.vizPlaceholder.hidden = true;
+    const frame = adcFrame;
+    if (frame) {
+      frame.classList.add('active');
+      frame.style.position = 'relative';
+      frame.style.left = '0';
+      frame.style.top = '0';
+      frame.style.width = '100%';
+      frame.style.visibility = 'visible';
+      frame.style.opacity = '1';
+      frame.style.pointerEvents = 'auto';
+      frame.style.border = '0';
+      frame.style.display = 'block';
+      if (!frame.style.height) frame.style.height = '1800px';
+    }
+    syncViewerStageHeight(null);
+  }
 }
 
 function markAdcDirty(reason = '') {
@@ -738,8 +766,6 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
     const renderSeq = ++vizRuntime.renderSeq;
     await prepareEmbeddedView('adc');
-    const expectedSrc = adcPreviewState.payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, adcPreviewState.payload.chart.src) : '';
-    await waitForAdcChartMatch(expectedSrc, 3200);
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
     await renderPreview('adc');
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
@@ -1399,7 +1425,6 @@ function getCanvasCrop(source, mode = '') {
     if (mode === 'adc') {
       const rect = adcFrame.contentWindow?.__cataEmbedSourceRect;
       if (rect && rect.w > 0 && rect.h > 0) return rect;
-      return { x: 0, y: 0, w: source.width, h: source.height };
     }
   } catch {}
   const tmp = document.createElement('canvas');
@@ -1458,18 +1483,8 @@ async function renderPreview(mode) {
     let loadedKey = renderInfo?.loadedKey || '';
     let sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
 
-    if (!sourceReady || !sourceMatchesExpected) {
-      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 3200);
-      source = getSourceCanvas('adc');
-      sourceReady = !!source && source.width > 48 && source.height > 48;
-      renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
-      loadedKey = renderInfo?.loadedKey || expectedInfo?.loadedKey || '';
-      sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
-    }
-
     if ((!sourceReady || !sourceMatchesExpected) && expectedSrc) {
-      await refreshEmbeddedSizing(mode);
-      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 2200);
+      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 1600);
       source = getSourceCanvas('adc');
       sourceReady = !!source && source.width > 48 && source.height > 48;
       renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
@@ -1496,16 +1511,19 @@ async function renderPreview(mode) {
       return true;
     }
 
-    out.hidden = true;
-    if (els.vizPlaceholder) {
-      els.vizPlaceholder.hidden = false;
-      els.vizPlaceholder.innerHTML = `
-        <div class="placeholder-title">Carta ADC em sincronização</div>
-        <div class="placeholder-sub">A visualização do fluxo Cat A agora espera a renderização real do ADC para não cair em uma prévia simplificada.</div>
-      `;
+    const ok = await renderAdcPreviewToCanvas(out);
+    if (ok) {
+      const scale = stageWidth / out.width;
+      const displayHeight = Math.round(out.height * scale);
+      out.style.width = stageWidth + 'px';
+      out.style.height = displayHeight + 'px';
+      out.hidden = false;
+      out.dataset.mode = mode;
+      if (els.vizPlaceholder) els.vizPlaceholder.hidden = true;
+      restoreViewerPlaceholder();
+      syncViewerStageHeight(displayHeight);
+      return true;
     }
-    syncViewerStageHeight(null);
-    return false;
   }
 
   const source = getSourceCanvas(mode);
@@ -1549,6 +1567,7 @@ function resizeActiveFrame(mode) {
 }
 
 function clearVisualization() {
+  setLiveViewerMode('');
   Object.values(frameMap).forEach(frame => frame.classList.remove('active'));
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.classList.remove('active'));
   els.viewerPane.classList.add('is-empty');
@@ -2212,6 +2231,14 @@ function setVisualization(mode, forceShow = true) {
     if (renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== mode) return;
     if (vizRuntime.modeDirty?.[mode] && mode !== 'adc') return;
 
+    if (mode === 'adc') {
+      setLiveViewerMode('adc');
+      clearModeDirty(mode);
+      renderVisualizationMeta(mode);
+      return;
+    }
+
+    setLiveViewerMode('');
     await renderPreview(mode);
     if (renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== mode) return;
 
