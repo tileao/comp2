@@ -738,6 +738,8 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
     const renderSeq = ++vizRuntime.renderSeq;
     await prepareEmbeddedView('adc');
+    const expectedSrc = adcPreviewState.payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, adcPreviewState.payload.chart.src) : '';
+    await waitForAdcChartMatch(expectedSrc, 3200);
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
     await renderPreview('adc');
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
@@ -1397,6 +1399,7 @@ function getCanvasCrop(source, mode = '') {
     if (mode === 'adc') {
       const rect = adcFrame.contentWindow?.__cataEmbedSourceRect;
       if (rect && rect.w > 0 && rect.h > 0) return rect;
+      return { x: 0, y: 0, w: source.width, h: source.height };
     }
   } catch {}
   const tmp = document.createElement('canvas');
@@ -1455,8 +1458,18 @@ async function renderPreview(mode) {
     let loadedKey = renderInfo?.loadedKey || '';
     let sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
 
+    if (!sourceReady || !sourceMatchesExpected) {
+      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 3200);
+      source = getSourceCanvas('adc');
+      sourceReady = !!source && source.width > 48 && source.height > 48;
+      renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
+      loadedKey = renderInfo?.loadedKey || expectedInfo?.loadedKey || '';
+      sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
+    }
+
     if ((!sourceReady || !sourceMatchesExpected) && expectedSrc) {
-      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 1600);
+      await refreshEmbeddedSizing(mode);
+      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 2200);
       source = getSourceCanvas('adc');
       sourceReady = !!source && source.width > 48 && source.height > 48;
       renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
@@ -1483,19 +1496,16 @@ async function renderPreview(mode) {
       return true;
     }
 
-    const ok = await renderAdcPreviewToCanvas(out);
-    if (ok) {
-      const scale = stageWidth / out.width;
-      const displayHeight = Math.round(out.height * scale);
-      out.style.width = stageWidth + 'px';
-      out.style.height = displayHeight + 'px';
-      out.hidden = false;
-      out.dataset.mode = mode;
-      if (els.vizPlaceholder) els.vizPlaceholder.hidden = true;
-      restoreViewerPlaceholder();
-      syncViewerStageHeight(displayHeight);
-      return true;
+    out.hidden = true;
+    if (els.vizPlaceholder) {
+      els.vizPlaceholder.hidden = false;
+      els.vizPlaceholder.innerHTML = `
+        <div class="placeholder-title">Carta ADC em sincronização</div>
+        <div class="placeholder-sub">A visualização do fluxo Cat A agora espera a renderização real do ADC para não cair em uma prévia simplificada.</div>
+      `;
     }
+    syncViewerStageHeight(null);
+    return false;
   }
 
   const source = getSourceCanvas(mode);
