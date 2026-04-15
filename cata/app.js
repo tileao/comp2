@@ -1456,7 +1456,7 @@ async function renderPreview(mode) {
     let sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
 
     if ((!sourceReady || !sourceMatchesExpected) && expectedSrc) {
-      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 1600);
+      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 3200);
       source = getSourceCanvas('adc');
       sourceReady = !!source && source.width > 48 && source.height > 48;
       renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
@@ -1464,7 +1464,7 @@ async function renderPreview(mode) {
       sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
     }
 
-    if (sourceReady && sourceMatchesExpected) {
+    if (sourceReady) {
       const crop = getCanvasCrop(source, 'adc');
       const scale = stageWidth / crop.w;
       const displayHeight = Math.round(crop.h * scale);
@@ -1483,19 +1483,10 @@ async function renderPreview(mode) {
       return true;
     }
 
-    const ok = await renderAdcPreviewToCanvas(out);
-    if (ok) {
-      const scale = stageWidth / out.width;
-      const displayHeight = Math.round(out.height * scale);
-      out.style.width = stageWidth + 'px';
-      out.style.height = displayHeight + 'px';
-      out.hidden = false;
-      out.dataset.mode = mode;
-      if (els.vizPlaceholder) els.vizPlaceholder.hidden = true;
-      restoreViewerPlaceholder();
-      syncViewerStageHeight(displayHeight);
-      return true;
-    }
+    out.hidden = true;
+    if (els.vizPlaceholder) els.vizPlaceholder.hidden = false;
+    syncViewerStageHeight(null);
+    return false;
   }
 
   const source = getSourceCanvas(mode);
