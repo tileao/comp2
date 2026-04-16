@@ -685,22 +685,6 @@ async function waitForNoPendingRto(doc, timeoutMs = 4000) {
   return false;
 }
 
-
-async function refreshDepartureOptionsFromBaseSelection() {
-  const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect']);
-  const baseSelect = doc.getElementById('baseSelect');
-  const depSelect = doc.getElementById('departureEndSelect');
-  if (!baseSelect || !depSelect) return '';
-  setField(doc, 'baseSelect', els.base.value);
-  await sleep(90);
-  els.base.innerHTML = baseSelect.innerHTML;
-  if (baseSelect.value) els.base.value = baseSelect.value;
-  els.departure.innerHTML = depSelect.innerHTML;
-  const currentToken = els.departure.value;
-  const selectedToken = selectDepartureOption(els.departure, currentToken || depSelect.value, parseDepartureSelection(currentToken).dep);
-  if (!selectedToken && depSelect.value) els.departure.value = depSelect.value;
-  return els.departure.value || depSelect.value || '';
-}
 async function populateBaseOptions() {
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect']);
   const baseSelect = doc.getElementById('baseSelect');
@@ -754,6 +738,8 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
     const renderSeq = ++vizRuntime.renderSeq;
     await prepareEmbeddedView('adc');
+    const expectedSrc = adcPreviewState.payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, adcPreviewState.payload.chart.src) : '';
+    await waitForAdcChartMatch(expectedSrc, 3200);
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
     await renderPreview('adc');
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
@@ -1087,16 +1073,28 @@ function invalidateAdcDecisionPanel(reason = 'seleção alterada') {
 
 async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
   const seq = ++vizRuntime.adcDecisionSeq;
-  const input = collectInputs();
-  const snap = getSavedResultsSnapshot();
-  const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
+  const isBaseChange = /base/i.test(String(reason || ''));
 
   markAdcDirty(reason);
   invalidateAdcDecisionPanel(reason);
+  pushSharedContext(collectInputs());
+
+  if (isBaseChange) {
+    try {
+      await syncAdcSelection({ renderPreviewIfActive: true });
+    } catch (error) {
+      console.warn('Falha ao sincronizar a ADC após trocar a base.', error);
+    }
+    if (seq !== vizRuntime.adcDecisionSeq) return;
+  }
+
+  const input = collectInputs();
+  const snap = getSavedResultsSnapshot();
+  const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
   pushSharedContext(input);
 
   if (!canReuse) {
-    syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
+    if (!isBaseChange) syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
     return;
   }
 
@@ -1401,6 +1399,7 @@ function getCanvasCrop(source, mode = '') {
     if (mode === 'adc') {
       const rect = adcFrame.contentWindow?.__cataEmbedSourceRect;
       if (rect && rect.w > 0 && rect.h > 0) return rect;
+      return { x: 0, y: 0, w: source.width, h: source.height };
     }
   } catch {}
   const tmp = document.createElement('canvas');
@@ -1459,8 +1458,18 @@ async function renderPreview(mode) {
     let loadedKey = renderInfo?.loadedKey || '';
     let sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
 
+    if (!sourceReady || !sourceMatchesExpected) {
+      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 3200);
+      source = getSourceCanvas('adc');
+      sourceReady = !!source && source.width > 48 && source.height > 48;
+      renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
+      loadedKey = renderInfo?.loadedKey || expectedInfo?.loadedKey || '';
+      sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
+    }
+
     if ((!sourceReady || !sourceMatchesExpected) && expectedSrc) {
-      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 1600);
+      await refreshEmbeddedSizing(mode);
+      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 2200);
       source = getSourceCanvas('adc');
       sourceReady = !!source && source.width > 48 && source.height > 48;
       renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
@@ -1487,19 +1496,16 @@ async function renderPreview(mode) {
       return true;
     }
 
-    const ok = await renderAdcPreviewToCanvas(out);
-    if (ok) {
-      const scale = stageWidth / out.width;
-      const displayHeight = Math.round(out.height * scale);
-      out.style.width = stageWidth + 'px';
-      out.style.height = displayHeight + 'px';
-      out.hidden = false;
-      out.dataset.mode = mode;
-      if (els.vizPlaceholder) els.vizPlaceholder.hidden = true;
-      restoreViewerPlaceholder();
-      syncViewerStageHeight(displayHeight);
-      return true;
+    out.hidden = true;
+    if (els.vizPlaceholder) {
+      els.vizPlaceholder.hidden = false;
+      els.vizPlaceholder.innerHTML = `
+        <div class="placeholder-title">Carta ADC em sincronização</div>
+        <div class="placeholder-sub">A visualização do fluxo Cat A agora espera a renderização real do ADC para não cair em uma prévia simplificada.</div>
+      `;
     }
+    syncViewerStageHeight(null);
+    return false;
   }
 
   const source = getSourceCanvas(mode);
@@ -2266,14 +2272,7 @@ function setupAutoAdvance() {
   rules.forEach((rule) => {
     if (!rule.el) return;
     if (rule.el.tagName === 'SELECT') {
-      rule.el.addEventListener('change', async () => {
-        if (rule.el === els.base) {
-          try {
-            await refreshDepartureOptionsFromBaseSelection();
-          } catch (error) {
-            console.warn('Falha ao atualizar cabeceiras após trocar a base.', error);
-          }
-        }
+      rule.el.addEventListener('change', () => {
         const nextIsSelect = rule.next?.tagName === 'SELECT';
         const openNextPicker = nextIsSelect && !isIPadLikeDevice();
         focusNext(rule.next, openNextPicker ? { delay: 120, openPicker: true } : { delay: 80 });
@@ -2340,18 +2339,18 @@ function bindEvents() {
   els.resetBtn?.addEventListener('click', resetFlowForm);
   els.visualSelect.addEventListener('change', e => setVisualization(e.target.value, !!e.target.value));
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.addEventListener('click', () => setVisualization(btn.dataset.viz, true)));
-  els.base.addEventListener('change', async () => { try { await refreshDepartureOptionsFromBaseSelection(); } catch (error) { console.warn('Falha ao sincronizar cabeceiras da base.', error); } refreshAdcDecisionForSelection('a base').catch(console.warn); });
+  els.base.addEventListener('change', () => { refreshAdcDecisionForSelection('a base').catch(console.warn); });
   els.departure.addEventListener('change', () => { refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
   [els.aircraftSet, els.config, els.pa, els.oat, els.weight, els.wind].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
-  els.openWATBtn.addEventListener('click', () => {
+  els.openWATBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../wat/?back=1&return=' + encodeURIComponent('../cata/');
   });
-  els.openRTOBtn.addEventListener('click', () => {
+  els.openRTOBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../rto/?back=1&return=' + encodeURIComponent('../cata/');
   });
-  els.openADCBtn.addEventListener('click', () => {
+  els.openADCBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../adc/?back=1&return=' + encodeURIComponent('../cata/');
   });
