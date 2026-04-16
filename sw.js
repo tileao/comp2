@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v14-cata-adc-real-canvas';
+const CACHE_NAME = 'aw139-companion-root-v15-cata-adc-chart-sync';
 const PRECACHE = [
   "./",
   "./README.md",
