@@ -764,13 +764,20 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
     const captureBanner = document.getElementById('captureBanner');
     const chartImg = new Image();
     const mainView = document.querySelector('.right');
-    chartImg.onload = () => { state.chartLoadedKey = chartKey(chartImg.currentSrc || chartImg.src || state.chartRequestedKey); state.chartRenderStamp += 1; resizeCanvas(); draw(); };
+    let fitStabilizeTimers = [];
+    let resizeObserver = null;
+    chartImg.onload = () => {
+      state.chartLoadedKey = chartKey(chartImg.currentSrc || chartImg.src || state.chartRequestedKey);
+      state.chartRenderStamp += 1;
+      scheduleCanvasStabilize('chart-load');
+    };
     chartImg.onerror = () => {
       const base = currentBase();
       const runway = currentRunway(base);
       const fallback = currentChart(base, runway);
       chartImg.src = fallback.chartDataUrl || fallback.asset || fallback.assetName || '';
       document.getElementById('vizSubtitle').textContent = `${base.id} • falha ao carregar a carta solicitada.`;
+      scheduleCanvasStabilize('chart-error-fallback');
     };
 
     function fixedFitTransform() {
@@ -783,19 +790,43 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
       const drawH = chart.size.height * scale;
       return { scale, offsetX: 0, offsetY: 0, drawW, drawH };
     }
-    function resizeCanvas() {
+    function clearCanvasStabilizeTimers() {
+      fitStabilizeTimers.forEach(timer => clearTimeout(timer));
+      fitStabilizeTimers = [];
+    }
+    function scheduleCanvasStabilize(reason = 'manual') {
+      clearCanvasStabilizeTimers();
+      const steps = [0, 16, 60, 140, 280, 520];
+      steps.forEach(delay => {
+        const timer = setTimeout(() => {
+          try { resizeCanvas(reason); } catch {}
+          try { draw(); } catch {}
+        }, delay);
+        fitStabilizeTimers.push(timer);
+      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        try { resizeCanvas(reason + '-raf'); } catch {}
+        try { draw(); } catch {}
+      }));
+    }
+    function resizeCanvas(reason = 'manual') {
       const base = currentBase();
       const runway = currentRunway(base);
       const chart = currentDisplayChart(base, runway);
-      const width = Math.max(1, vizWrap.clientWidth || vizWrap.getBoundingClientRect().width || chart.size.width);
+      const rawRect = vizWrap.getBoundingClientRect();
+      const width = Math.max(1, vizWrap.clientWidth || rawRect.width || chart.size.width);
       const targetHeight = Math.round(width * (chart.size.height / chart.size.width));
-      vizWrap.style.height = targetHeight + 'px';
+      if (Math.abs((vizWrap.clientHeight || rawRect.height || 0) - targetHeight) > 1) {
+        vizWrap.style.height = targetHeight + 'px';
+      }
       const rect = vizWrap.getBoundingClientRect();
+      const safeWidth = Math.max(1, rect.width || width);
+      const safeHeight = Math.max(1, rect.height || targetHeight);
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-      canvas.style.width = rect.width + 'px';
-      canvas.style.height = rect.height + 'px';
+      canvas.width = Math.round(safeWidth * dpr);
+      canvas.height = Math.round(safeHeight * dpr);
+      canvas.style.width = safeWidth + 'px';
+      canvas.style.height = safeHeight + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const fit = fixedFitTransform();
       state.scale = fit.scale;
@@ -861,9 +892,11 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
         state.chartLoadedKey = '';
         if (chartImg.src !== src) chartImg.src = src;
         else chartImg.src = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
+        scheduleCanvasStabilize('load-current-chart');
       } else if (!canvas?.width || !canvas?.height) {
-        try { resizeCanvas(); } catch {}
-        try { draw(); } catch {}
+        scheduleCanvasStabilize('load-current-chart-empty-canvas');
+      } else {
+        scheduleCanvasStabilize('load-current-chart-refresh');
       }
       document.getElementById('vizSubtitle').textContent = `${base.id} • ${runway.label} • ${chart.label} • toque na carta para abrir em tela cheia.`;
     }
@@ -1952,6 +1985,11 @@ async function analyzeFromBridge(ctx = {}) {
   renderDeclaredInputs();
   if (ctx.rto != null) document.getElementById('rtoInput').value = String(ctx.rto);
   analyze();
+  try {
+    const requestedSrc = getBridgePayload()?.chart?.src || chartSource(currentBase(), currentRunway(currentBase()));
+    await waitForChart(requestedSrc, 4500);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  } catch {}
   saveUiState();
   return getBridgePayload();
 }
@@ -2011,8 +2049,13 @@ window.__adcBridge = {
 
 
 
-window.addEventListener('resize', resizeCanvas);
-    chartImg.addEventListener('load', resizeCanvas);
+window.addEventListener('resize', () => scheduleCanvasStabilize('window-resize'));
+    window.addEventListener('pageshow', () => scheduleCanvasStabilize('pageshow'));
+    window.addEventListener('orientationchange', () => scheduleCanvasStabilize('orientationchange'));
+    window.addEventListener('load', () => scheduleCanvasStabilize('window-load'));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) scheduleCanvasStabilize('visibilitychange');
+    });
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
     document.getElementById('baseSelect').addEventListener('change', e => setCurrentBase(e.target.value));
     document.getElementById('departureEndSelect').addEventListener('change', e => setCurrentDeparture(e.target.value));
@@ -2087,7 +2130,7 @@ window.addEventListener('resize', resizeCanvas);
       const on = force == null ? !document.body.classList.contains('body-fullscreen') : !!force;
       document.body.classList.toggle('body-fullscreen', on);
       mainView.classList.toggle('chart-only-fullscreen', on);
-      setTimeout(resizeCanvas, 20);
+      scheduleCanvasStabilize(on ? 'enter-fullscreen' : 'exit-fullscreen');
     }
     vizWrap.addEventListener('click', e => {
       if (state.captureMode) {
@@ -2129,3 +2172,9 @@ window.addEventListener('resize', resizeCanvas);
     if (persisted.rto) document.getElementById('rtoInput').value = persisted.rto;
     syncAdvancedPanel();
     if (!readExternalInbox()) analyze();
+    try {
+      resizeObserver = new ResizeObserver(() => scheduleCanvasStabilize('resize-observer'));
+      resizeObserver.observe(vizWrap);
+      if (mainView) resizeObserver.observe(mainView);
+    } catch {}
+    scheduleCanvasStabilize('init');
