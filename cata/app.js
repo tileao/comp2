@@ -710,13 +710,20 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   let selectedToken = desired.token;
 
   if (bridge?.analyzeFromBridge) {
-    const payload = await bridge.analyzeFromBridge({
+    let payload = await bridge.analyzeFromBridge({
       baseId: els.base.value,
       runwayId: desired.runwayId || undefined,
       departureEnd: desired.dep || undefined,
       departureToken: desired.token || undefined,
       rto: numberFromText(els.rtoMetric.textContent) ?? loadCtx().rtoMeters ?? 0,
     });
+    const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
+    if (expectedSrc && bridge.waitForChart) {
+      try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
+    }
+    if (bridge.getPayload) {
+      try { payload = bridge.getPayload() || payload; } catch {}
+    }
     if (syncSeq !== vizRuntime.adcSyncSeq) return selectedToken;
     adcPreviewState.payload = payload || null;
   } else {
@@ -908,13 +915,20 @@ async function runADC(input, rtoResult) {
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect', 'rtoInput', 'analyzeBtn', 'decisionTable']);
   const bridge = adcFrame.contentWindow?.__adcBridge;
   if (bridge?.analyzeFromBridge) {
-    const payload = await bridge.analyzeFromBridge({
+    let payload = await bridge.analyzeFromBridge({
       baseId: input.base,
       runwayId: input.runwayId || undefined,
       departureEnd: input.departureEnd,
       departureToken: input.departureToken || undefined,
       rto: rtoResult?.rtoMeters ?? 0,
     });
+    const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
+    if (expectedSrc && bridge.waitForChart) {
+      try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
+    }
+    if (bridge.getPayload) {
+      try { payload = bridge.getPayload() || payload; } catch {}
+    }
     adcPreviewState.payload = payload;
     const rows = (payload?.analysis?.rows || []).map(row => ({
       id: row.id || '',
