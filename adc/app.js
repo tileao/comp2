@@ -764,7 +764,7 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
     const captureBanner = document.getElementById('captureBanner');
     const chartImg = new Image();
     const mainView = document.querySelector('.right');
-    chartImg.onload = () => { state.chartLoadedKey = chartKey(chartImg.currentSrc || chartImg.src || state.chartRequestedKey); state.chartRenderStamp += 1; resizeCanvas(); draw(); requestAnimationFrame(() => { try { resizeCanvas(); } catch {} }); window.setTimeout(() => { try { resizeCanvas(); } catch {} }, 90); window.setTimeout(() => { try { resizeCanvas(); } catch {} }, 220); };
+    chartImg.onload = () => { state.chartLoadedKey = chartKey(chartImg.currentSrc || chartImg.src || state.chartRequestedKey); state.chartRenderStamp += 1; resizeCanvas(); draw(); };
     chartImg.onerror = () => {
       const base = currentBase();
       const runway = currentRunway(base);
@@ -2011,16 +2011,6 @@ window.__adcBridge = {
 
 
 
-if (typeof ResizeObserver !== 'undefined') {
-  const ro = new ResizeObserver(() => {
-    try { resizeCanvas(); } catch {}
-  });
-  try { ro.observe(vizWrap); } catch {}
-  const chartFrameEl = document.querySelector('.chart-frame');
-  if (chartFrameEl) {
-    try { ro.observe(chartFrameEl); } catch {}
-  }
-}
 window.addEventListener('resize', resizeCanvas);
     chartImg.addEventListener('load', resizeCanvas);
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
