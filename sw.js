@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v15-cata-adc-chart-sync';
+const CACHE_NAME = 'aw139-companion-root-v11-flow-base-adc-firstfix';
 const PRECACHE = [
   "./",
   "./README.md",
@@ -114,7 +114,6 @@ const PRECACHE = [
   "./rto/sw.js",
   "./shared/home.js",
   "./shared/module-bridge.js",
-  "./shared/module-layout.css",
   "./shared/pwa.css",
   "./shared/pwa.js",
   "./styles.css",
