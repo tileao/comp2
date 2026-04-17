@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v18-cata-flow-rewrite';
+const CACHE_NAME = 'aw139-companion-root-v19-cata-performance';
 const PRECACHE = [
   "./",
   "./README.md",
