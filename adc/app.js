@@ -1951,14 +1951,22 @@ async function analyzeFromBridge(ctx = {}) {
     return { token: raw, runwayId: '', dep: raw };
   };
   const desired = parseBridgeDeparture(ctx.departureToken || ctx.adcDepartureToken || ctx.departureEnd || '');
+  const wantsResetDeparture = !!ctx.resetDeparture;
   if (ctx.baseId) state.currentBaseId = String(ctx.baseId);
   const base = currentBase();
-  if (ctx.runwayId && base.runways.some(r => String(r.id) === String(ctx.runwayId))) {
-    state.currentRunwayId = String(ctx.runwayId);
-  } else if (desired.runwayId && base.runways.some(r => String(r.id) === String(desired.runwayId))) {
-    state.currentRunwayId = String(desired.runwayId);
+  const defaultRw = base.runways.find(r => r.id === base.defaultRunwayId) || base.runways[0];
+
+  if (wantsResetDeparture) {
+    state.currentRunwayId = defaultRw?.id || state.currentRunwayId;
+    state.departureEnd = String((defaultRw?.ends || [defaultRw?.referenceEnd]).find(Boolean) || '');
+  } else {
+    if (ctx.runwayId && base.runways.some(r => String(r.id) === String(ctx.runwayId))) {
+      state.currentRunwayId = String(ctx.runwayId);
+    } else if (desired.runwayId && base.runways.some(r => String(r.id) === String(desired.runwayId))) {
+      state.currentRunwayId = String(desired.runwayId);
+    }
+    if (desired.dep) state.departureEnd = desired.dep;
   }
-  if (desired.dep) state.departureEnd = desired.dep;
   refreshBaseOptions();
   refreshDepartureOptions();
   refreshFineTuneOptions();
