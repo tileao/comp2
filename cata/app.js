@@ -514,6 +514,12 @@ function setField(doc, id, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
   return true;
 }
+function setFieldSilent(doc, id, value) {
+  const el = doc.getElementById(id);
+  if (!el) return false;
+  el.value = value ?? '';
+  return true;
+}
 function setRadio(doc, name, value) {
   const el = doc.querySelector(`input[name="${name}"][value="${value}"]`);
   if (!el) return false;
@@ -710,6 +716,7 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   let selectedToken = desired.token;
 
   if (bridge?.analyzeFromBridge) {
+    const shouldWaitForChart = !!(renderPreviewIfActive && activeAdc);
     let payload = await bridge.analyzeFromBridge({
       baseId: els.base.value,
       runwayId: desired.runwayId || undefined,
@@ -717,9 +724,10 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
       departureToken: desired.token || undefined,
       rto: numberFromText(els.rtoMetric.textContent) ?? loadCtx().rtoMeters ?? 0,
       resetDeparture: !!resetDeparture,
+      skipChartWait: !shouldWaitForChart,
     });
     const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
-    if (expectedSrc && bridge.waitForChart) {
+    if (shouldWaitForChart && expectedSrc && bridge.waitForChart) {
       try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
     }
     if (bridge.getPayload) {
@@ -813,16 +821,10 @@ async function runWAT(input) {
   setRadio(doc, 'aircraftSet', input.aircraftSet || '6800');
   setField(doc, 'procedure', 'clear');
   setField(doc, 'configuration', input.configuration);
-  await waitForFieldValue(doc, 'procedure', 'clear');
-  await waitForFieldValue(doc, 'configuration', input.configuration);
-  setField(doc, 'headwind', input.headwindKt);
-  setField(doc, 'pressureAltitude', input.pressureAltitudeFt);
-  setField(doc, 'oat', input.oatC);
-  setField(doc, 'actualWeight', input.weightKg);
-  await waitForFieldValue(doc, 'pressureAltitude', input.pressureAltitudeFt);
-  await waitForFieldValue(doc, 'oat', input.oatC);
-  await waitForFieldValue(doc, 'actualWeight', input.weightKg);
-  await waitForFieldValue(doc, 'headwind', input.headwindKt);
+  setFieldSilent(doc, 'headwind', input.headwindKt);
+  setFieldSilent(doc, 'pressureAltitude', input.pressureAltitudeFt);
+  setFieldSilent(doc, 'oat', input.oatC);
+  setFieldSilent(doc, 'actualWeight', input.weightKg);
   await nextFrame(1);
   try { await doc.defaultView?.runCalculation?.(); } catch { clickField(doc, 'runBtn'); }
 
@@ -831,7 +833,7 @@ async function runWAT(input) {
     const summary = text(doc, 'statusText');
     const pending = /recalculando|aguardando|loading|carregando/i.test(summary);
     return t && t !== '—' && !pending ? t : null;
-  }, 7000);
+  }, 1800);
   const marginText = text(doc, 'margin');
   const summary = text(doc, 'statusText');
   const result = {
@@ -858,31 +860,22 @@ async function runRTO(input) {
   if (statusTextEl) statusTextEl.textContent = 'Aguardando nova leitura.';
 
   const mappedConfig = mapRtoConfig(input.configuration);
-  setField(doc, 'configuration', mappedConfig);
-  await waitForFieldValue(doc, 'configuration', mappedConfig, 3500);
+  const configEl = doc.getElementById('configuration');
+  if (configEl) configEl.value = mappedConfig;
+
+  setFieldSilent(doc, 'headwind', input.headwindKt);
+  setFieldSilent(doc, 'pressureAltitude', input.pressureAltitudeFt);
+  setFieldSilent(doc, 'oat', input.oatC);
+  setFieldSilent(doc, 'actualWeight', input.weightKg);
+
   try {
     await doc.defaultView?.ensureEffectiveProfileLoaded?.({ preserveInputs: true, autoRun: false });
   } catch {}
-  await waitForNoPendingRto(doc, 2500);
-  try { await doc.defaultView?.clearResultsOnly?.(); } catch {}
-
-  setField(doc, 'headwind', input.headwindKt);
-  setField(doc, 'pressureAltitude', input.pressureAltitudeFt);
-  setField(doc, 'oat', input.oatC);
-  setField(doc, 'actualWeight', input.weightKg);
-
-  await waitForFieldValue(doc, 'pressureAltitude', input.pressureAltitudeFt);
-  await waitForFieldValue(doc, 'oat', input.oatC);
-  await waitForFieldValue(doc, 'actualWeight', input.weightKg);
-  await waitForFieldValue(doc, 'headwind', input.headwindKt);
-  await nextFrame(1);
-
   try { await doc.defaultView?.refreshWeightSensitiveProfileIfNeeded?.(); } catch {}
-  try { await doc.defaultView?.ensureEffectiveProfileLoaded?.({ preserveInputs: true, autoRun: false }); } catch {}
-  await waitForNoPendingRto(doc, 2500);
+  await waitForNoPendingRto(doc, 1600);
 
   try {
-    await doc.defaultView?.runCalculation?.();
+    await doc.defaultView?.runCalculation?.({ skipEnsureProfile: true });
   } catch {
     clickField(doc, 'runBtn');
   }
@@ -891,15 +884,15 @@ async function runRTO(input) {
     const t = text(doc, 'finalMetric');
     const pending = /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusDetail')) || /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusText'));
     return /\d/.test(t) && t !== '—' && !pending && (t !== previousMetric || previousMetric === '—') ? t : null;
-  }, 8000);
+  }, 3500);
 
   if (!metricText) {
-    try { await doc.defaultView?.runCalculation?.(); } catch { clickField(doc, 'runBtn'); }
+    try { await doc.defaultView?.runCalculation?.({ skipEnsureProfile: true }); } catch { clickField(doc, 'runBtn'); }
     metricText = await waitForTruthy(() => {
       const t = text(doc, 'finalMetric');
       const pending = /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusDetail')) || /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusText'));
       return /\d/.test(t) && t !== '—' && !pending ? t : null;
-    }, 6000);
+    }, 2500);
   }
 
   metricText = metricText || text(doc, 'finalMetric');
@@ -917,15 +910,17 @@ async function runADC(input, rtoResult) {
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect', 'rtoInput', 'analyzeBtn', 'decisionTable']);
   const bridge = adcFrame.contentWindow?.__adcBridge;
   if (bridge?.analyzeFromBridge) {
+    const shouldWaitForChart = (els.visualSelect.value || '') === 'adc';
     let payload = await bridge.analyzeFromBridge({
       baseId: input.base,
       runwayId: input.runwayId || undefined,
       departureEnd: input.departureEnd,
       departureToken: input.departureToken || undefined,
       rto: rtoResult?.rtoMeters ?? 0,
+      skipChartWait: !shouldWaitForChart,
     });
     const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
-    if (expectedSrc && bridge.waitForChart) {
+    if (shouldWaitForChart && expectedSrc && bridge.waitForChart) {
       try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
     }
     if (bridge.getPayload) {
