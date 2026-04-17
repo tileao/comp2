@@ -695,7 +695,7 @@ async function populateBaseOptions() {
   if (!els.departure.value) els.departure.value = depSelect.value;
 }
 
-async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
+async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture = false } = {}) {
   const syncSeq = ++vizRuntime.adcSyncSeq;
   const activeAdc = (els.visualSelect.value || '') === 'adc';
   if (renderPreviewIfActive && activeAdc) {
@@ -705,24 +705,32 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect']);
   const baseSelect = doc.getElementById('baseSelect');
   const depSelect = doc.getElementById('departureEndSelect');
-  const desired = parseDepartureSelection(els.departure.value);
+  const desired = resetDeparture ? { token: '', runwayId: '', dep: '' } : parseDepartureSelection(els.departure.value);
   const bridge = adcFrame.contentWindow?.__adcBridge;
   let selectedToken = desired.token;
 
   if (bridge?.analyzeFromBridge) {
-    const payload = await bridge.analyzeFromBridge({
+    let payload = await bridge.analyzeFromBridge({
       baseId: els.base.value,
       runwayId: desired.runwayId || undefined,
       departureEnd: desired.dep || undefined,
       departureToken: desired.token || undefined,
       rto: numberFromText(els.rtoMetric.textContent) ?? loadCtx().rtoMeters ?? 0,
+      resetDeparture: !!resetDeparture,
     });
+    const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
+    if (expectedSrc && bridge.waitForChart) {
+      try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
+    }
+    if (bridge.getPayload) {
+      try { payload = bridge.getPayload() || payload; } catch {}
+    }
     if (syncSeq !== vizRuntime.adcSyncSeq) return selectedToken;
     adcPreviewState.payload = payload || null;
   } else {
     setField(doc, 'baseSelect', els.base.value);
     await sleep(80);
-    selectedToken = selectDepartureOption(depSelect, desired.token, desired.dep);
+    selectedToken = resetDeparture ? selectDepartureOption(depSelect, '', '') : selectDepartureOption(depSelect, desired.token, desired.dep);
     if (selectedToken) setField(doc, 'departureEndSelect', selectedToken);
     await sleep(80);
     try { doc.defaultView?.analyze?.(); } catch { clickField(doc, 'analyzeBtn'); }
@@ -738,8 +746,6 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
     const renderSeq = ++vizRuntime.renderSeq;
     await prepareEmbeddedView('adc');
-    const expectedSrc = adcPreviewState.payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, adcPreviewState.payload.chart.src) : '';
-    await waitForAdcChartMatch(expectedSrc, 3200);
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
     await renderPreview('adc');
     if (syncSeq !== vizRuntime.adcSyncSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return selectedToken;
@@ -910,13 +916,20 @@ async function runADC(input, rtoResult) {
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect', 'rtoInput', 'analyzeBtn', 'decisionTable']);
   const bridge = adcFrame.contentWindow?.__adcBridge;
   if (bridge?.analyzeFromBridge) {
-    const payload = await bridge.analyzeFromBridge({
+    let payload = await bridge.analyzeFromBridge({
       baseId: input.base,
       runwayId: input.runwayId || undefined,
       departureEnd: input.departureEnd,
       departureToken: input.departureToken || undefined,
       rto: rtoResult?.rtoMeters ?? 0,
     });
+    const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
+    if (expectedSrc && bridge.waitForChart) {
+      try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
+    }
+    if (bridge.getPayload) {
+      try { payload = bridge.getPayload() || payload; } catch {}
+    }
     adcPreviewState.payload = payload;
     const rows = (payload?.analysis?.rows || []).map(row => ({
       id: row.id || '',
@@ -1081,7 +1094,7 @@ async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
 
   if (isBaseChange) {
     try {
-      await syncAdcSelection({ renderPreviewIfActive: true });
+      await syncAdcSelection({ renderPreviewIfActive: true, resetDeparture: true });
     } catch (error) {
       console.warn('Falha ao sincronizar a ADC após trocar a base.', error);
     }
@@ -1399,7 +1412,6 @@ function getCanvasCrop(source, mode = '') {
     if (mode === 'adc') {
       const rect = adcFrame.contentWindow?.__cataEmbedSourceRect;
       if (rect && rect.w > 0 && rect.h > 0) return rect;
-      return { x: 0, y: 0, w: source.width, h: source.height };
     }
   } catch {}
   const tmp = document.createElement('canvas');
@@ -1458,7 +1470,7 @@ async function renderPreview(mode) {
     let loadedKey = renderInfo?.loadedKey || '';
     let sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
 
-    if (!sourceReady || !sourceMatchesExpected) {
+    if ((!sourceReady || !sourceMatchesExpected) && expectedSrc) {
       const expectedInfo = await waitForAdcChartMatch(expectedSrc, 3200);
       source = getSourceCanvas('adc');
       sourceReady = !!source && source.width > 48 && source.height > 48;
@@ -1467,17 +1479,7 @@ async function renderPreview(mode) {
       sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
     }
 
-    if ((!sourceReady || !sourceMatchesExpected) && expectedSrc) {
-      await refreshEmbeddedSizing(mode);
-      const expectedInfo = await waitForAdcChartMatch(expectedSrc, 2200);
-      source = getSourceCanvas('adc');
-      sourceReady = !!source && source.width > 48 && source.height > 48;
-      renderInfo = adcFrame.contentWindow?.__adcBridge?.getRenderInfo ? adcFrame.contentWindow.__adcBridge.getRenderInfo() : null;
-      loadedKey = renderInfo?.loadedKey || expectedInfo?.loadedKey || '';
-      sourceMatchesExpected = !expectedKey || loadedKey === expectedKey;
-    }
-
-    if (sourceReady && sourceMatchesExpected) {
+    if (sourceReady) {
       const crop = getCanvasCrop(source, 'adc');
       const scale = stageWidth / crop.w;
       const displayHeight = Math.round(crop.h * scale);
@@ -1497,13 +1499,7 @@ async function renderPreview(mode) {
     }
 
     out.hidden = true;
-    if (els.vizPlaceholder) {
-      els.vizPlaceholder.hidden = false;
-      els.vizPlaceholder.innerHTML = `
-        <div class="placeholder-title">Carta ADC em sincronização</div>
-        <div class="placeholder-sub">A visualização do fluxo Cat A agora espera a renderização real do ADC para não cair em uma prévia simplificada.</div>
-      `;
-    }
+    if (els.vizPlaceholder) els.vizPlaceholder.hidden = false;
     syncViewerStageHeight(null);
     return false;
   }
@@ -2339,7 +2335,13 @@ function bindEvents() {
   els.resetBtn?.addEventListener('click', resetFlowForm);
   els.visualSelect.addEventListener('change', e => setVisualization(e.target.value, !!e.target.value));
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.addEventListener('click', () => setVisualization(btn.dataset.viz, true)));
-  els.base.addEventListener('change', () => { refreshAdcDecisionForSelection('a base').catch(console.warn); });
+  els.base.addEventListener('change', () => {
+    if (els.departure) {
+      els.departure.innerHTML = '<option value=>Atualizando…</option>';
+      els.departure.value = '';
+    }
+    refreshAdcDecisionForSelection('a base').catch(console.warn);
+  });
   els.departure.addEventListener('change', () => { refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
   [els.aircraftSet, els.config, els.pa, els.oat, els.weight, els.wind].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
   els.openWATBtn?.addEventListener('click', () => {
