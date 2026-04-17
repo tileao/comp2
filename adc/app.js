@@ -764,12 +764,22 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
     const captureBanner = document.getElementById('captureBanner');
     const chartImg = new Image();
     const mainView = document.querySelector('.right');
-    let fitStabilizeTimers = [];
-    let resizeObserver = null;
+    let layoutPassToken = 0;
+    function scheduleLayoutPasses() {
+      const token = ++layoutPassToken;
+      [0, 40, 120, 260, 520].forEach((delay) => {
+        window.setTimeout(() => {
+          if (token !== layoutPassToken) return;
+          try { resizeCanvas(); } catch {}
+        }, delay);
+      });
+    }
     chartImg.onload = () => {
       state.chartLoadedKey = chartKey(chartImg.currentSrc || chartImg.src || state.chartRequestedKey);
       state.chartRenderStamp += 1;
-      scheduleCanvasStabilize('chart-load');
+      resizeCanvas();
+      draw();
+      scheduleLayoutPasses();
     };
     chartImg.onerror = () => {
       const base = currentBase();
@@ -777,7 +787,6 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
       const fallback = currentChart(base, runway);
       chartImg.src = fallback.chartDataUrl || fallback.asset || fallback.assetName || '';
       document.getElementById('vizSubtitle').textContent = `${base.id} • falha ao carregar a carta solicitada.`;
-      scheduleCanvasStabilize('chart-error-fallback');
     };
 
     function fixedFitTransform() {
@@ -790,43 +799,19 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
       const drawH = chart.size.height * scale;
       return { scale, offsetX: 0, offsetY: 0, drawW, drawH };
     }
-    function clearCanvasStabilizeTimers() {
-      fitStabilizeTimers.forEach(timer => clearTimeout(timer));
-      fitStabilizeTimers = [];
-    }
-    function scheduleCanvasStabilize(reason = 'manual') {
-      clearCanvasStabilizeTimers();
-      const steps = [0, 16, 60, 140, 280, 520];
-      steps.forEach(delay => {
-        const timer = setTimeout(() => {
-          try { resizeCanvas(reason); } catch {}
-          try { draw(); } catch {}
-        }, delay);
-        fitStabilizeTimers.push(timer);
-      });
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        try { resizeCanvas(reason + '-raf'); } catch {}
-        try { draw(); } catch {}
-      }));
-    }
-    function resizeCanvas(reason = 'manual') {
+    function resizeCanvas() {
       const base = currentBase();
       const runway = currentRunway(base);
       const chart = currentDisplayChart(base, runway);
-      const rawRect = vizWrap.getBoundingClientRect();
-      const width = Math.max(1, vizWrap.clientWidth || rawRect.width || chart.size.width);
+      const width = Math.max(1, vizWrap.clientWidth || vizWrap.getBoundingClientRect().width || chart.size.width);
       const targetHeight = Math.round(width * (chart.size.height / chart.size.width));
-      if (Math.abs((vizWrap.clientHeight || rawRect.height || 0) - targetHeight) > 1) {
-        vizWrap.style.height = targetHeight + 'px';
-      }
+      vizWrap.style.height = targetHeight + 'px';
       const rect = vizWrap.getBoundingClientRect();
-      const safeWidth = Math.max(1, rect.width || width);
-      const safeHeight = Math.max(1, rect.height || targetHeight);
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(safeWidth * dpr);
-      canvas.height = Math.round(safeHeight * dpr);
-      canvas.style.width = safeWidth + 'px';
-      canvas.style.height = safeHeight + 'px';
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const fit = fixedFitTransform();
       state.scale = fit.scale;
@@ -892,11 +877,9 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
         state.chartLoadedKey = '';
         if (chartImg.src !== src) chartImg.src = src;
         else chartImg.src = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
-        scheduleCanvasStabilize('load-current-chart');
       } else if (!canvas?.width || !canvas?.height) {
-        scheduleCanvasStabilize('load-current-chart-empty-canvas');
-      } else {
-        scheduleCanvasStabilize('load-current-chart-refresh');
+        try { resizeCanvas(); } catch {}
+        try { draw(); } catch {}
       }
       document.getElementById('vizSubtitle').textContent = `${base.id} • ${runway.label} • ${chart.label} • toque na carta para abrir em tela cheia.`;
     }
@@ -1950,21 +1933,15 @@ async function analyzeFromBridge(ctx = {}) {
     }
     return { token: raw, runwayId: '', dep: raw };
   };
-  const wantsResetDeparture = !!ctx.resetDeparture;
-  const desired = wantsResetDeparture ? { token: '', runwayId: '', dep: '' } : parseBridgeDeparture(ctx.departureToken || ctx.adcDepartureToken || ctx.departureEnd || '');
+  const desired = parseBridgeDeparture(ctx.departureToken || ctx.adcDepartureToken || ctx.departureEnd || '');
   if (ctx.baseId) state.currentBaseId = String(ctx.baseId);
   const base = currentBase();
-  if (wantsResetDeparture) {
-    state.currentRunwayId = base.defaultRunwayId || base.runways?.[0]?.id || state.currentRunwayId;
-    const defaultRunway = base.runways.find(r => String(r.id) === String(state.currentRunwayId)) || base.runways[0] || null;
-    const defaultEnd = defaultRunway?.ends?.[0] || defaultRunway?.referenceEnd || '';
-    if (defaultEnd) state.departureEnd = String(defaultEnd);
-  } else if (ctx.runwayId && base.runways.some(r => String(r.id) === String(ctx.runwayId))) {
+  if (ctx.runwayId && base.runways.some(r => String(r.id) === String(ctx.runwayId))) {
     state.currentRunwayId = String(ctx.runwayId);
   } else if (desired.runwayId && base.runways.some(r => String(r.id) === String(desired.runwayId))) {
     state.currentRunwayId = String(desired.runwayId);
   }
-  if (!wantsResetDeparture && desired.dep) state.departureEnd = desired.dep;
+  if (desired.dep) state.departureEnd = desired.dep;
   refreshBaseOptions();
   refreshDepartureOptions();
   refreshFineTuneOptions();
@@ -1983,7 +1960,6 @@ async function analyzeFromBridge(ctx = {}) {
       if (parsed.dep) state.departureEnd = parsed.dep;
     }
   }
-  const skipChartWait = !!ctx.skipChartWait;
   renderChartPageControls();
   loadCurrentChart();
   renderLibraryStatus();
@@ -1992,13 +1968,6 @@ async function analyzeFromBridge(ctx = {}) {
   renderDeclaredInputs();
   if (ctx.rto != null) document.getElementById('rtoInput').value = String(ctx.rto);
   analyze();
-  if (!skipChartWait) {
-    try {
-      const requestedSrc = getBridgePayload()?.chart?.src || chartSource(currentBase(), currentRunway(currentBase()));
-      await waitForChart(requestedSrc, 4500);
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    } catch {}
-  }
   saveUiState();
   return getBridgePayload();
 }
@@ -2058,13 +2027,19 @@ window.__adcBridge = {
 
 
 
-window.addEventListener('resize', () => scheduleCanvasStabilize('window-resize'));
-    window.addEventListener('pageshow', () => scheduleCanvasStabilize('pageshow'));
-    window.addEventListener('orientationchange', () => scheduleCanvasStabilize('orientationchange'));
-    window.addEventListener('load', () => scheduleCanvasStabilize('window-load'));
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) scheduleCanvasStabilize('visibilitychange');
+window.addEventListener('resize', () => {
+      resizeCanvas();
+      scheduleLayoutPasses();
     });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', scheduleLayoutPasses);
+      window.visualViewport.addEventListener('scroll', scheduleLayoutPasses);
+    }
+    window.addEventListener('pageshow', scheduleLayoutPasses);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) scheduleLayoutPasses();
+    });
+    chartImg.addEventListener('load', scheduleLayoutPasses);
     document.getElementById('analyzeBtn').addEventListener('click', analyze);
     document.getElementById('baseSelect').addEventListener('change', e => setCurrentBase(e.target.value));
     document.getElementById('departureEndSelect').addEventListener('change', e => setCurrentDeparture(e.target.value));
@@ -2139,7 +2114,7 @@ window.addEventListener('resize', () => scheduleCanvasStabilize('window-resize')
       const on = force == null ? !document.body.classList.contains('body-fullscreen') : !!force;
       document.body.classList.toggle('body-fullscreen', on);
       mainView.classList.toggle('chart-only-fullscreen', on);
-      scheduleCanvasStabilize(on ? 'enter-fullscreen' : 'exit-fullscreen');
+      setTimeout(resizeCanvas, 20);
     }
     vizWrap.addEventListener('click', e => {
       if (state.captureMode) {
@@ -2181,9 +2156,7 @@ window.addEventListener('resize', () => scheduleCanvasStabilize('window-resize')
     if (persisted.rto) document.getElementById('rtoInput').value = persisted.rto;
     syncAdvancedPanel();
     if (!readExternalInbox()) analyze();
-    try {
-      resizeObserver = new ResizeObserver(() => scheduleCanvasStabilize('resize-observer'));
-      resizeObserver.observe(vizWrap);
-      if (mainView) resizeObserver.observe(mainView);
-    } catch {}
-    scheduleCanvasStabilize('init');
+    scheduleLayoutPasses();
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(scheduleLayoutPasses).catch(() => {});
+    }

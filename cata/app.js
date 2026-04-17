@@ -5,7 +5,7 @@ const rtoFrame = document.getElementById('rtoFrame');
 const frameMap = { adc: adcFrame, wat: watFrame, rto: rtoFrame };
 const adcPreviewState = { payload: null };
 const imageCache = new Map();
-const vizRuntime = { renderSeq: 0, adcSyncSeq: 0, adcDecisionSeq: 0, flowSeq: 0, selectionSeq: 0, adcDirty: false, modeDirty: { adc: false, wat: false, rto: false } };
+const vizRuntime = { renderSeq: 0, adcSyncSeq: 0, adcDecisionSeq: 0, adcDirty: false, modeDirty: { adc: false, wat: false, rto: false } };
 
 const els = {
   base: document.getElementById('baseSelect'),
@@ -514,12 +514,6 @@ function setField(doc, id, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
   return true;
 }
-function setFieldSilent(doc, id, value) {
-  const el = doc.getElementById(id);
-  if (!el) return false;
-  el.value = value ?? '';
-  return true;
-}
 function setRadio(doc, name, value) {
   const el = doc.querySelector(`input[name="${name}"][value="${value}"]`);
   if (!el) return false;
@@ -701,7 +695,7 @@ async function populateBaseOptions() {
   if (!els.departure.value) els.departure.value = depSelect.value;
 }
 
-async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture = false } = {}) {
+async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   const syncSeq = ++vizRuntime.adcSyncSeq;
   const activeAdc = (els.visualSelect.value || '') === 'adc';
   if (renderPreviewIfActive && activeAdc) {
@@ -711,34 +705,24 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect']);
   const baseSelect = doc.getElementById('baseSelect');
   const depSelect = doc.getElementById('departureEndSelect');
-  const desired = resetDeparture ? { token: '', runwayId: '', dep: '' } : parseDepartureSelection(els.departure.value);
+  const desired = parseDepartureSelection(els.departure.value);
   const bridge = adcFrame.contentWindow?.__adcBridge;
   let selectedToken = desired.token;
 
   if (bridge?.analyzeFromBridge) {
-    const shouldWaitForChart = !!(renderPreviewIfActive && activeAdc);
-    let payload = await bridge.analyzeFromBridge({
+    const payload = await bridge.analyzeFromBridge({
       baseId: els.base.value,
       runwayId: desired.runwayId || undefined,
       departureEnd: desired.dep || undefined,
       departureToken: desired.token || undefined,
       rto: numberFromText(els.rtoMetric.textContent) ?? loadCtx().rtoMeters ?? 0,
-      resetDeparture: !!resetDeparture,
-      skipChartWait: !shouldWaitForChart,
     });
-    const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
-    if (shouldWaitForChart && expectedSrc && bridge.waitForChart) {
-      try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
-    }
-    if (bridge.getPayload) {
-      try { payload = bridge.getPayload() || payload; } catch {}
-    }
     if (syncSeq !== vizRuntime.adcSyncSeq) return selectedToken;
     adcPreviewState.payload = payload || null;
   } else {
     setField(doc, 'baseSelect', els.base.value);
     await sleep(80);
-    selectedToken = resetDeparture ? selectDepartureOption(depSelect, '', '') : selectDepartureOption(depSelect, desired.token, desired.dep);
+    selectedToken = selectDepartureOption(depSelect, desired.token, desired.dep);
     if (selectedToken) setField(doc, 'departureEndSelect', selectedToken);
     await sleep(80);
     try { doc.defaultView?.analyze?.(); } catch { clickField(doc, 'analyzeBtn'); }
@@ -749,7 +733,6 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   els.base.innerHTML = baseSelect.innerHTML;
   if (baseSelect.value) els.base.value = baseSelect.value;
   els.departure.innerHTML = depSelect.innerHTML;
-  els.departure.disabled = false;
   selectedToken = selectDepartureOption(els.departure, depSelect.value || desired.token, desired.dep);
 
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
@@ -821,10 +804,16 @@ async function runWAT(input) {
   setRadio(doc, 'aircraftSet', input.aircraftSet || '6800');
   setField(doc, 'procedure', 'clear');
   setField(doc, 'configuration', input.configuration);
-  setFieldSilent(doc, 'headwind', input.headwindKt);
-  setFieldSilent(doc, 'pressureAltitude', input.pressureAltitudeFt);
-  setFieldSilent(doc, 'oat', input.oatC);
-  setFieldSilent(doc, 'actualWeight', input.weightKg);
+  await waitForFieldValue(doc, 'procedure', 'clear');
+  await waitForFieldValue(doc, 'configuration', input.configuration);
+  setField(doc, 'headwind', input.headwindKt);
+  setField(doc, 'pressureAltitude', input.pressureAltitudeFt);
+  setField(doc, 'oat', input.oatC);
+  setField(doc, 'actualWeight', input.weightKg);
+  await waitForFieldValue(doc, 'pressureAltitude', input.pressureAltitudeFt);
+  await waitForFieldValue(doc, 'oat', input.oatC);
+  await waitForFieldValue(doc, 'actualWeight', input.weightKg);
+  await waitForFieldValue(doc, 'headwind', input.headwindKt);
   await nextFrame(1);
   try { await doc.defaultView?.runCalculation?.(); } catch { clickField(doc, 'runBtn'); }
 
@@ -833,7 +822,7 @@ async function runWAT(input) {
     const summary = text(doc, 'statusText');
     const pending = /recalculando|aguardando|loading|carregando/i.test(summary);
     return t && t !== '—' && !pending ? t : null;
-  }, 1800);
+  }, 7000);
   const marginText = text(doc, 'margin');
   const summary = text(doc, 'statusText');
   const result = {
@@ -860,22 +849,31 @@ async function runRTO(input) {
   if (statusTextEl) statusTextEl.textContent = 'Aguardando nova leitura.';
 
   const mappedConfig = mapRtoConfig(input.configuration);
-  const configEl = doc.getElementById('configuration');
-  if (configEl) configEl.value = mappedConfig;
-
-  setFieldSilent(doc, 'headwind', input.headwindKt);
-  setFieldSilent(doc, 'pressureAltitude', input.pressureAltitudeFt);
-  setFieldSilent(doc, 'oat', input.oatC);
-  setFieldSilent(doc, 'actualWeight', input.weightKg);
-
+  setField(doc, 'configuration', mappedConfig);
+  await waitForFieldValue(doc, 'configuration', mappedConfig, 3500);
   try {
     await doc.defaultView?.ensureEffectiveProfileLoaded?.({ preserveInputs: true, autoRun: false });
   } catch {}
+  await waitForNoPendingRto(doc, 2500);
+  try { await doc.defaultView?.clearResultsOnly?.(); } catch {}
+
+  setField(doc, 'headwind', input.headwindKt);
+  setField(doc, 'pressureAltitude', input.pressureAltitudeFt);
+  setField(doc, 'oat', input.oatC);
+  setField(doc, 'actualWeight', input.weightKg);
+
+  await waitForFieldValue(doc, 'pressureAltitude', input.pressureAltitudeFt);
+  await waitForFieldValue(doc, 'oat', input.oatC);
+  await waitForFieldValue(doc, 'actualWeight', input.weightKg);
+  await waitForFieldValue(doc, 'headwind', input.headwindKt);
+  await nextFrame(1);
+
   try { await doc.defaultView?.refreshWeightSensitiveProfileIfNeeded?.(); } catch {}
-  await waitForNoPendingRto(doc, 1600);
+  try { await doc.defaultView?.ensureEffectiveProfileLoaded?.({ preserveInputs: true, autoRun: false }); } catch {}
+  await waitForNoPendingRto(doc, 2500);
 
   try {
-    await doc.defaultView?.runCalculation?.({ skipEnsureProfile: true });
+    await doc.defaultView?.runCalculation?.();
   } catch {
     clickField(doc, 'runBtn');
   }
@@ -884,15 +882,15 @@ async function runRTO(input) {
     const t = text(doc, 'finalMetric');
     const pending = /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusDetail')) || /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusText'));
     return /\d/.test(t) && t !== '—' && !pending && (t !== previousMetric || previousMetric === '—') ? t : null;
-  }, 3500);
+  }, 8000);
 
   if (!metricText) {
-    try { await doc.defaultView?.runCalculation?.({ skipEnsureProfile: true }); } catch { clickField(doc, 'runBtn'); }
+    try { await doc.defaultView?.runCalculation?.(); } catch { clickField(doc, 'runBtn'); }
     metricText = await waitForTruthy(() => {
       const t = text(doc, 'finalMetric');
       const pending = /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusDetail')) || /recalculando|aguardando|loading|carregando/i.test(text(doc, 'statusText'));
       return /\d/.test(t) && t !== '—' && !pending ? t : null;
-    }, 2500);
+    }, 6000);
   }
 
   metricText = metricText || text(doc, 'finalMetric');
@@ -910,22 +908,13 @@ async function runADC(input, rtoResult) {
   const doc = await waitForIframe(adcFrame, ['baseSelect', 'departureEndSelect', 'rtoInput', 'analyzeBtn', 'decisionTable']);
   const bridge = adcFrame.contentWindow?.__adcBridge;
   if (bridge?.analyzeFromBridge) {
-    const shouldWaitForChart = (els.visualSelect.value || '') === 'adc';
-    let payload = await bridge.analyzeFromBridge({
+    const payload = await bridge.analyzeFromBridge({
       baseId: input.base,
       runwayId: input.runwayId || undefined,
       departureEnd: input.departureEnd,
       departureToken: input.departureToken || undefined,
       rto: rtoResult?.rtoMeters ?? 0,
-      skipChartWait: !shouldWaitForChart,
     });
-    const expectedSrc = payload?.chart?.src ? resolveFrameAssetSrc(adcFrame, payload.chart.src) : '';
-    if (shouldWaitForChart && expectedSrc && bridge.waitForChart) {
-      try { await bridge.waitForChart(expectedSrc, 4500); } catch {}
-    }
-    if (bridge.getPayload) {
-      try { payload = bridge.getPayload() || payload; } catch {}
-    }
     adcPreviewState.payload = payload;
     const rows = (payload?.analysis?.rows || []).map(row => ({
       id: row.id || '',
@@ -1080,51 +1069,36 @@ function invalidateAdcDecisionPanel(reason = 'seleção alterada') {
   els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Atualizando decisão…</td></tr>';
 }
 
-function renderSelectionPendingRecalc(reason = 'seleção alterada') {
-  const detail = /base/i.test(reason) ? 'Base atualizada.' : /cabeceira/i.test(reason) ? 'Cabeceira atualizada.' : 'Seleção atualizada.';
-  els.statusChip.textContent = 'Recalcular CAT A';
-  els.statusChip.className = 'status-chip warn';
-  els.resultCard.classList.remove('result-ok', 'result-bad');
-  els.resultCard.classList.add('pending');
-  els.rtoBox.classList.remove('ok', 'bad');
-  els.rtoSummary.textContent = `${detail} Recalcule o fluxo para atualizar WAT, RTO e decisão.`;
-  els.decisionBody.innerHTML = `<tr><td colspan="2" class="muted-cell">${detail} Recalcule o CAT A para gerar a nova decisão.</td></tr>`;
-}
-
 async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
-  const seq = ++vizRuntime.selectionSeq;
+  const seq = ++vizRuntime.adcDecisionSeq;
   const isBaseChange = /base/i.test(String(reason || ''));
 
   markAdcDirty(reason);
+  invalidateAdcDecisionPanel(reason);
   pushSharedContext(collectInputs());
 
-  try {
-    await syncAdcSelection({ renderPreviewIfActive: true, resetDeparture: isBaseChange });
-  } catch (error) {
-    console.warn('Falha ao sincronizar a ADC após trocar seleção.', error);
-    if (seq !== vizRuntime.selectionSeq) return;
-    renderSelectionPendingRecalc(reason);
-    clearModeDirty('adc');
-    return;
+  if (isBaseChange) {
+    try {
+      await syncAdcSelection({ renderPreviewIfActive: true });
+    } catch (error) {
+      console.warn('Falha ao sincronizar a ADC após trocar a base.', error);
+    }
+    if (seq !== vizRuntime.adcDecisionSeq) return;
   }
-
-  if (seq !== vizRuntime.selectionSeq) return;
 
   const input = collectInputs();
-  pushSharedContext(input);
   const snap = getSavedResultsSnapshot();
   const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
+  pushSharedContext(input);
 
   if (!canReuse) {
-    renderSelectionPendingRecalc(reason);
-    clearModeDirty('adc');
+    if (!isBaseChange) syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
     return;
   }
 
-  invalidateAdcDecisionPanel(reason);
   try {
     const adc = await runADC(input, snap.rto);
-    if (seq !== vizRuntime.selectionSeq) return;
+    if (seq !== vizRuntime.adcDecisionSeq) return;
     renderResults(snap.wat, snap.rto, adc);
     saveResultSnapshot(input, snap.wat, snap.rto, adc);
     clearAdcDirty();
@@ -1132,16 +1106,15 @@ async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
     if ((els.visualSelect.value || '') === 'adc') {
       const renderSeq = ++vizRuntime.renderSeq;
       await prepareEmbeddedView('adc');
-      if (seq !== vizRuntime.selectionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
+      if (seq !== vizRuntime.adcDecisionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
       await renderPreview('adc');
-      if (seq !== vizRuntime.selectionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
+      if (seq !== vizRuntime.adcDecisionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
       renderVisualizationMeta('adc');
     }
   } catch (error) {
     console.warn('Falha ao atualizar a decisão ADC após trocar seleção.', error);
-    if (seq !== vizRuntime.selectionSeq) return;
-    renderSelectionPendingRecalc(reason);
-    clearModeDirty('adc');
+    if (seq !== vizRuntime.adcDecisionSeq) return;
+    syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
   }
 }
 
@@ -2310,26 +2283,16 @@ function setupAutoAdvance() {
 }
 
 async function runFlow() {
-  const flowSeq = ++vizRuntime.flowSeq;
+  const input = collectInputs();
   markCalculationDirty('o cálculo');
   if (els.visualSelect.value) showModeLoading(els.visualSelect.value, 'recalculando');
+  pushSharedContext(input);
   els.statusChip.textContent = 'Calculando…';
   els.statusChip.className = 'status-chip warn';
   els.resultCard.classList.remove('result-ok', 'result-bad');
-
   try {
-    await syncAdcSelection({ renderPreviewIfActive: (els.visualSelect.value || '') === 'adc' });
-    if (flowSeq !== vizRuntime.flowSeq) return;
-
-    const input = collectInputs();
-    pushSharedContext(input);
-
     const [wat, rto] = await Promise.all([runWAT(input), runRTO(input)]);
-    if (flowSeq !== vizRuntime.flowSeq) return;
-
     const adc = await runADC(input, rto);
-    if (flowSeq !== vizRuntime.flowSeq) return;
-
     clearAllModeDirty();
     clearAdcDirty();
     renderResults(wat, rto, adc);
@@ -2342,8 +2305,6 @@ async function runFlow() {
     els.statusChip.className = 'status-chip bad';
     els.resultCard.classList.remove('result-ok');
     els.resultCard.classList.add('result-bad');
-    els.rtoSummary.textContent = 'Não foi possível carregar todos os resultados do fluxo composto.';
-    els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Falha ao integrar os módulos. Tente calcular novamente.</td></tr>';
   }
 }
 
@@ -2359,18 +2320,7 @@ function bindEvents() {
   els.resetBtn?.addEventListener('click', resetFlowForm);
   els.visualSelect.addEventListener('change', e => setVisualization(e.target.value, !!e.target.value));
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.addEventListener('click', () => setVisualization(btn.dataset.viz, true)));
-  els.base.addEventListener('change', () => {
-    if (els.departure) {
-      els.departure.disabled = true;
-      els.departure.innerHTML = '<option value="">Atualizando…</option>';
-      els.departure.value = '';
-    }
-    refreshAdcDecisionForSelection('a base')
-      .catch(console.warn)
-      .finally(() => {
-        if (els.departure) els.departure.disabled = false;
-      });
-  });
+  els.base.addEventListener('change', () => { refreshAdcDecisionForSelection('a base').catch(console.warn); });
   els.departure.addEventListener('change', () => { refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
   [els.aircraftSet, els.config, els.pa, els.oat, els.weight, els.wind].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
   els.openWATBtn?.addEventListener('click', () => {
