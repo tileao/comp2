@@ -707,6 +707,7 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   const depSelect = doc.getElementById('departureEndSelect');
   const desired = resetDeparture ? { token: '', runwayId: '', dep: '' } : parseDepartureSelection(els.departure.value);
   const bridge = adcFrame.contentWindow?.__adcBridge;
+  let bridgeState = null;
   let selectedToken = desired.token;
 
   if (bridge?.analyzeFromBridge) {
@@ -725,6 +726,9 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
     if (bridge.getPayload) {
       try { payload = bridge.getPayload() || payload; } catch {}
     }
+    if (bridge.getCurrentState) {
+      try { bridgeState = bridge.getCurrentState() || null; } catch {}
+    }
     if (syncSeq !== vizRuntime.adcSyncSeq) return selectedToken;
     adcPreviewState.payload = payload || null;
   } else {
@@ -741,7 +745,14 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   els.base.innerHTML = baseSelect.innerHTML;
   if (baseSelect.value) els.base.value = baseSelect.value;
   els.departure.innerHTML = depSelect.innerHTML;
-  selectedToken = selectDepartureOption(els.departure, depSelect.value || desired.token, desired.dep);
+  const bridgeToken = bridgeState?.currentRunwayId && bridgeState?.departureEnd
+    ? `${bridgeState.currentRunwayId}::${bridgeState.departureEnd}`
+    : '';
+  selectedToken = selectDepartureOption(
+    els.departure,
+    depSelect.value || bridgeToken || desired.token,
+    bridgeState?.departureEnd || desired.dep
+  );
 
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
     const renderSeq = ++vizRuntime.renderSeq;
@@ -1107,7 +1118,14 @@ async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
   pushSharedContext(input);
 
   if (!canReuse) {
-    if (!isBaseChange) syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
+    if (!isBaseChange) {
+      syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
+    } else {
+      els.statusChip.textContent = 'Seleção atualizada';
+      els.statusChip.className = 'status-chip warn';
+      els.rtoSummary.textContent = 'Base e cabeceira sincronizadas. Toque em Calcular para atualizar a decisão.';
+      els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Base e cabeceira atualizadas. Execute o cálculo para gerar a decisão.</td></tr>';
+    }
     return;
   }
 
