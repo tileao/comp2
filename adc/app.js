@@ -1950,23 +1950,21 @@ async function analyzeFromBridge(ctx = {}) {
     }
     return { token: raw, runwayId: '', dep: raw };
   };
-  const desired = parseBridgeDeparture(ctx.departureToken || ctx.adcDepartureToken || ctx.departureEnd || '');
   const wantsResetDeparture = !!ctx.resetDeparture;
+  const desired = wantsResetDeparture ? { token: '', runwayId: '', dep: '' } : parseBridgeDeparture(ctx.departureToken || ctx.adcDepartureToken || ctx.departureEnd || '');
   if (ctx.baseId) state.currentBaseId = String(ctx.baseId);
   const base = currentBase();
-  const defaultRw = base.runways.find(r => r.id === base.defaultRunwayId) || base.runways[0];
-
   if (wantsResetDeparture) {
-    state.currentRunwayId = defaultRw?.id || state.currentRunwayId;
-    state.departureEnd = String((defaultRw?.ends || [defaultRw?.referenceEnd]).find(Boolean) || '');
-  } else {
-    if (ctx.runwayId && base.runways.some(r => String(r.id) === String(ctx.runwayId))) {
-      state.currentRunwayId = String(ctx.runwayId);
-    } else if (desired.runwayId && base.runways.some(r => String(r.id) === String(desired.runwayId))) {
-      state.currentRunwayId = String(desired.runwayId);
-    }
-    if (desired.dep) state.departureEnd = desired.dep;
+    state.currentRunwayId = base.defaultRunwayId || base.runways?.[0]?.id || state.currentRunwayId;
+    const defaultRunway = base.runways.find(r => String(r.id) === String(state.currentRunwayId)) || base.runways[0] || null;
+    const defaultEnd = defaultRunway?.ends?.[0] || defaultRunway?.referenceEnd || '';
+    if (defaultEnd) state.departureEnd = String(defaultEnd);
+  } else if (ctx.runwayId && base.runways.some(r => String(r.id) === String(ctx.runwayId))) {
+    state.currentRunwayId = String(ctx.runwayId);
+  } else if (desired.runwayId && base.runways.some(r => String(r.id) === String(desired.runwayId))) {
+    state.currentRunwayId = String(desired.runwayId);
   }
+  if (!wantsResetDeparture && desired.dep) state.departureEnd = desired.dep;
   refreshBaseOptions();
   refreshDepartureOptions();
   refreshFineTuneOptions();
