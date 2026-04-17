@@ -805,15 +805,22 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
       const chart = currentDisplayChart(base, runway);
       const width = Math.max(1, vizWrap.clientWidth || vizWrap.getBoundingClientRect().width || chart.size.width);
       const targetHeight = Math.round(width * (chart.size.height / chart.size.width));
-      vizWrap.style.height = targetHeight + 'px';
-      const rect = vizWrap.getBoundingClientRect();
+      vizWrap.style.setProperty('height', targetHeight + 'px', 'important');
+      vizWrap.style.setProperty('min-height', targetHeight + 'px', 'important');
+      vizWrap.style.setProperty('max-height', 'none', 'important');
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-      canvas.style.width = rect.width + 'px';
-      canvas.style.height = rect.height + 'px';
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(targetHeight * dpr);
+      canvas.style.setProperty('width', width + 'px', 'important');
+      canvas.style.setProperty('height', targetHeight + 'px', 'important');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const fit = fixedFitTransform();
+      const fit = {
+        scale: width / chart.size.width,
+        offsetX: 0,
+        offsetY: 0,
+        drawW: width,
+        drawH: targetHeight
+      };
       state.scale = fit.scale;
       state.offsetX = fit.offsetX;
       state.offsetY = fit.offsetY;
@@ -1823,7 +1830,7 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
       ctx.restore();
     }
     function draw() {
-      const rect = vizWrap.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
       labelBoxes = [];
       ctx.clearRect(0, 0, rect.width, rect.height);
       const base = currentBase();
