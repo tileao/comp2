@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-wat-offline-v3-wat-visual-fix';
+const CACHE_NAME = 'aw139-wat-offline-v4-wat-visual-fix';
 const ASSETS = [
   "./",
   "../assets/icon-180.png",
