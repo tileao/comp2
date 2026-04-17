@@ -1782,6 +1782,16 @@ function getModeSnapshotCanvas(mode) {
 
 function getModePdfCanvas(mode) {
   try {
+    if (mode === 'wat') {
+      const bridgeCanvas = watFrame.contentWindow?.__cataWatBridge?.getPdfCanvas?.();
+      if (bridgeCanvas && bridgeCanvas.width > 16 && bridgeCanvas.height > 16) {
+        const tmp = document.createElement('canvas');
+        tmp.width = bridgeCanvas.width;
+        tmp.height = bridgeCanvas.height;
+        tmp.getContext('2d').drawImage(bridgeCanvas, 0, 0);
+        return tmp;
+      }
+    }
     const src = getSourceCanvas(mode);
     if (src && src.width > 16 && src.height > 16) {
       const crop = getCanvasCrop(src, mode);
