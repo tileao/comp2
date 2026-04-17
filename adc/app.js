@@ -1983,6 +1983,7 @@ async function analyzeFromBridge(ctx = {}) {
       if (parsed.dep) state.departureEnd = parsed.dep;
     }
   }
+  const skipChartWait = !!ctx.skipChartWait;
   renderChartPageControls();
   loadCurrentChart();
   renderLibraryStatus();
@@ -1991,11 +1992,13 @@ async function analyzeFromBridge(ctx = {}) {
   renderDeclaredInputs();
   if (ctx.rto != null) document.getElementById('rtoInput').value = String(ctx.rto);
   analyze();
-  try {
-    const requestedSrc = getBridgePayload()?.chart?.src || chartSource(currentBase(), currentRunway(currentBase()));
-    await waitForChart(requestedSrc, 4500);
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  } catch {}
+  if (!skipChartWait) {
+    try {
+      const requestedSrc = getBridgePayload()?.chart?.src || chartSource(currentBase(), currentRunway(currentBase()));
+      await waitForChart(requestedSrc, 4500);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    } catch {}
+  }
   saveUiState();
   return getBridgePayload();
 }
