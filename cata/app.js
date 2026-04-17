@@ -5,7 +5,7 @@ const rtoFrame = document.getElementById('rtoFrame');
 const frameMap = { adc: adcFrame, wat: watFrame, rto: rtoFrame };
 const adcPreviewState = { payload: null };
 const imageCache = new Map();
-const vizRuntime = { renderSeq: 0, adcSyncSeq: 0, adcDecisionSeq: 0, adcDirty: false, modeDirty: { adc: false, wat: false, rto: false } };
+const vizRuntime = { renderSeq: 0, adcSyncSeq: 0, adcDecisionSeq: 0, flowSeq: 0, selectionSeq: 0, adcDirty: false, modeDirty: { adc: false, wat: false, rto: false } };
 
 const els = {
   base: document.getElementById('baseSelect'),
@@ -707,7 +707,6 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   const depSelect = doc.getElementById('departureEndSelect');
   const desired = resetDeparture ? { token: '', runwayId: '', dep: '' } : parseDepartureSelection(els.departure.value);
   const bridge = adcFrame.contentWindow?.__adcBridge;
-  let bridgeState = null;
   let selectedToken = desired.token;
 
   if (bridge?.analyzeFromBridge) {
@@ -726,9 +725,6 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
     if (bridge.getPayload) {
       try { payload = bridge.getPayload() || payload; } catch {}
     }
-    if (bridge.getCurrentState) {
-      try { bridgeState = bridge.getCurrentState() || null; } catch {}
-    }
     if (syncSeq !== vizRuntime.adcSyncSeq) return selectedToken;
     adcPreviewState.payload = payload || null;
   } else {
@@ -745,14 +741,8 @@ async function syncAdcSelection({ renderPreviewIfActive = false, resetDeparture 
   els.base.innerHTML = baseSelect.innerHTML;
   if (baseSelect.value) els.base.value = baseSelect.value;
   els.departure.innerHTML = depSelect.innerHTML;
-  const bridgeToken = bridgeState?.currentRunwayId && bridgeState?.departureEnd
-    ? `${bridgeState.currentRunwayId}::${bridgeState.departureEnd}`
-    : '';
-  selectedToken = selectDepartureOption(
-    els.departure,
-    depSelect.value || bridgeToken || desired.token,
-    bridgeState?.departureEnd || desired.dep
-  );
+  els.departure.disabled = false;
+  selectedToken = selectDepartureOption(els.departure, depSelect.value || desired.token, desired.dep);
 
   if (renderPreviewIfActive && (els.visualSelect.value || '') === 'adc') {
     const renderSeq = ++vizRuntime.renderSeq;
@@ -1095,43 +1085,51 @@ function invalidateAdcDecisionPanel(reason = 'seleção alterada') {
   els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Atualizando decisão…</td></tr>';
 }
 
+function renderSelectionPendingRecalc(reason = 'seleção alterada') {
+  const detail = /base/i.test(reason) ? 'Base atualizada.' : /cabeceira/i.test(reason) ? 'Cabeceira atualizada.' : 'Seleção atualizada.';
+  els.statusChip.textContent = 'Recalcular CAT A';
+  els.statusChip.className = 'status-chip warn';
+  els.resultCard.classList.remove('result-ok', 'result-bad');
+  els.resultCard.classList.add('pending');
+  els.rtoBox.classList.remove('ok', 'bad');
+  els.rtoSummary.textContent = `${detail} Recalcule o fluxo para atualizar WAT, RTO e decisão.`;
+  els.decisionBody.innerHTML = `<tr><td colspan="2" class="muted-cell">${detail} Recalcule o CAT A para gerar a nova decisão.</td></tr>`;
+}
+
 async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
-  const seq = ++vizRuntime.adcDecisionSeq;
+  const seq = ++vizRuntime.selectionSeq;
   const isBaseChange = /base/i.test(String(reason || ''));
 
   markAdcDirty(reason);
-  invalidateAdcDecisionPanel(reason);
   pushSharedContext(collectInputs());
 
-  if (isBaseChange) {
-    try {
-      await syncAdcSelection({ renderPreviewIfActive: true, resetDeparture: true });
-    } catch (error) {
-      console.warn('Falha ao sincronizar a ADC após trocar a base.', error);
-    }
-    if (seq !== vizRuntime.adcDecisionSeq) return;
-  }
-
-  const input = collectInputs();
-  const snap = getSavedResultsSnapshot();
-  const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
-  pushSharedContext(input);
-
-  if (!canReuse) {
-    if (!isBaseChange) {
-      syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
-    } else {
-      els.statusChip.textContent = 'Seleção atualizada';
-      els.statusChip.className = 'status-chip warn';
-      els.rtoSummary.textContent = 'Base e cabeceira sincronizadas. Toque em Calcular para atualizar a decisão.';
-      els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Base e cabeceira atualizadas. Execute o cálculo para gerar a decisão.</td></tr>';
-    }
+  try {
+    await syncAdcSelection({ renderPreviewIfActive: true, resetDeparture: isBaseChange });
+  } catch (error) {
+    console.warn('Falha ao sincronizar a ADC após trocar seleção.', error);
+    if (seq !== vizRuntime.selectionSeq) return;
+    renderSelectionPendingRecalc(reason);
+    clearModeDirty('adc');
     return;
   }
 
+  if (seq !== vizRuntime.selectionSeq) return;
+
+  const input = collectInputs();
+  pushSharedContext(input);
+  const snap = getSavedResultsSnapshot();
+  const canReuse = !!(snap?.wat && snap?.rto && sameCalcInputsExceptAdc(input, snap.input || {}));
+
+  if (!canReuse) {
+    renderSelectionPendingRecalc(reason);
+    clearModeDirty('adc');
+    return;
+  }
+
+  invalidateAdcDecisionPanel(reason);
   try {
     const adc = await runADC(input, snap.rto);
-    if (seq !== vizRuntime.adcDecisionSeq) return;
+    if (seq !== vizRuntime.selectionSeq) return;
     renderResults(snap.wat, snap.rto, adc);
     saveResultSnapshot(input, snap.wat, snap.rto, adc);
     clearAdcDirty();
@@ -1139,15 +1137,16 @@ async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
     if ((els.visualSelect.value || '') === 'adc') {
       const renderSeq = ++vizRuntime.renderSeq;
       await prepareEmbeddedView('adc');
-      if (seq !== vizRuntime.adcDecisionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
+      if (seq !== vizRuntime.selectionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
       await renderPreview('adc');
-      if (seq !== vizRuntime.adcDecisionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
+      if (seq !== vizRuntime.selectionSeq || renderSeq !== vizRuntime.renderSeq || (els.visualSelect.value || '') !== 'adc') return;
       renderVisualizationMeta('adc');
     }
   } catch (error) {
     console.warn('Falha ao atualizar a decisão ADC após trocar seleção.', error);
-    if (seq !== vizRuntime.adcDecisionSeq) return;
-    syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
+    if (seq !== vizRuntime.selectionSeq) return;
+    renderSelectionPendingRecalc(reason);
+    clearModeDirty('adc');
   }
 }
 
@@ -2316,16 +2315,26 @@ function setupAutoAdvance() {
 }
 
 async function runFlow() {
-  const input = collectInputs();
+  const flowSeq = ++vizRuntime.flowSeq;
   markCalculationDirty('o cálculo');
   if (els.visualSelect.value) showModeLoading(els.visualSelect.value, 'recalculando');
-  pushSharedContext(input);
   els.statusChip.textContent = 'Calculando…';
   els.statusChip.className = 'status-chip warn';
   els.resultCard.classList.remove('result-ok', 'result-bad');
+
   try {
+    await syncAdcSelection({ renderPreviewIfActive: (els.visualSelect.value || '') === 'adc' });
+    if (flowSeq !== vizRuntime.flowSeq) return;
+
+    const input = collectInputs();
+    pushSharedContext(input);
+
     const [wat, rto] = await Promise.all([runWAT(input), runRTO(input)]);
+    if (flowSeq !== vizRuntime.flowSeq) return;
+
     const adc = await runADC(input, rto);
+    if (flowSeq !== vizRuntime.flowSeq) return;
+
     clearAllModeDirty();
     clearAdcDirty();
     renderResults(wat, rto, adc);
@@ -2338,6 +2347,8 @@ async function runFlow() {
     els.statusChip.className = 'status-chip bad';
     els.resultCard.classList.remove('result-ok');
     els.resultCard.classList.add('result-bad');
+    els.rtoSummary.textContent = 'Não foi possível carregar todos os resultados do fluxo composto.';
+    els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Falha ao integrar os módulos. Tente calcular novamente.</td></tr>';
   }
 }
 
@@ -2355,10 +2366,15 @@ function bindEvents() {
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.addEventListener('click', () => setVisualization(btn.dataset.viz, true)));
   els.base.addEventListener('change', () => {
     if (els.departure) {
-      els.departure.innerHTML = '<option value=>Atualizando…</option>';
+      els.departure.disabled = true;
+      els.departure.innerHTML = '<option value="">Atualizando…</option>';
       els.departure.value = '';
     }
-    refreshAdcDecisionForSelection('a base').catch(console.warn);
+    refreshAdcDecisionForSelection('a base')
+      .catch(console.warn)
+      .finally(() => {
+        if (els.departure) els.departure.disabled = false;
+      });
   });
   els.departure.addEventListener('change', () => { refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
   [els.aircraftSet, els.config, els.pa, els.oat, els.weight, els.wind].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
