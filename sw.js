@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v17-adc-first-open-fix-2';
+const CACHE_NAME = 'aw139-companion-root-v23-metar-speci';
 const PRECACHE = [
   "./",
   "./README.md",
@@ -62,6 +62,16 @@ const PRECACHE = [
   "./cata/app.js",
   "./cata/index.html",
   "./cata/styles.css",
+  "./dropdown/app.js",
+  "./dropdown/assets/dropdown-enhanced-7000.png",
+  "./dropdown/assets/dropdown-offshore-6400.png",
+  "./dropdown/assets/dropdown-offshore-6800.png",
+  "./dropdown/ddv7-fullscreen-fix.js",
+  "./dropdown/ddv7-patch.js",
+  "./dropdown/final-ui.js",
+  "./dropdown/graphData.js",
+  "./dropdown/index.html",
+  "./dropdown/styles.css",
   "./index.html",
   "./manifest.webmanifest",
   "./offline.html",

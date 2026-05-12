@@ -1,4 +1,26 @@
 const SHARED_KEY = 'aw139_companion_shared_context_v1';
+const KG_TO_LBS = 2.20462;
+const LBS_TO_KG = 1 / KG_TO_LBS;
+let weightUnit = 'kg';
+
+function weightToKg(value, unit) {
+  return unit === 'lbs' ? Math.round(value * LBS_TO_KG) : value;
+}
+function weightFromKg(kg, unit) {
+  return unit === 'lbs' ? Math.round(kg * KG_TO_LBS) : kg;
+}
+
+const AERODROME_DB = {
+  SBCB: { elevationFt: 23,  magVar: -22, runways: { RWY_10_28: { '10': 100, '28': 280 } } },
+  SBME: { elevationFt: 7,   magVar: -22, runways: { RWY_05_23: { '05': 50, '23': 230 }, RWY_06_24: { '06': 60, '24': 240 } } },
+  SBGL: { elevationFt: 29,  magVar: -22, runways: { RWY_10_28: { '10': 100, '28': 280 }, RWY_15_33: { '15': 150, '33': 330 } } },
+  SBNF: { elevationFt: 21,  magVar: -20, runways: { RWY_08_26: { '08': 80,  '26': 260 } } },
+  SBRJ: { elevationFt: 11,  magVar: -22, runways: { RWY_02L_20R: { '02L': 20, '20R': 200 }, RWY_02R_20L: { '02R': 20, '20L': 200 } } },
+  SBVT: { elevationFt: 11,  magVar: -22, runways: { RWY_06_24: { '06': 60, '24': 240 }, RWY_02_20: { '02': 20, '20': 200 } } },
+  SBJR: { elevationFt: 16,  magVar: -22, runways: { RWY_03_21: { '03': 30, '21': 210 } } },
+  SBMI: { elevationFt: 13,  magVar: -22, runways: { RWY_09_27: { '09': 90, '27': 270 } } },
+  SBFS: { elevationFt: 7,   magVar: -21, runways: { RWY_15_33: { '15': 150, '33': 330 } } },
+};
 const adcFrame = document.getElementById('adcFrame');
 const watFrame = document.getElementById('watFrame');
 const rtoFrame = document.getElementById('rtoFrame');
@@ -12,12 +34,17 @@ const els = {
   departure: document.getElementById('departureEndSelect'),
   aircraftSet: document.getElementById('aircraftSetSelect'),
   config: document.getElementById('configurationSelect'),
-  pa: document.getElementById('pressureAltitude'),
-  paNegativeBtn: document.getElementById('paNegativeBtn'),
+  qnh: document.getElementById('qnh'),
   oat: document.getElementById('oat'),
   oatNegativeBtn: document.getElementById('oatNegativeBtn'),
   weight: document.getElementById('actualWeight'),
-  wind: document.getElementById('headwind'),
+  weightUnitBtn: document.getElementById('weightUnitBtn'),
+  windDir: document.getElementById('windDir'),
+  windSpeed: document.getElementById('windSpeed'),
+  metarBtn: document.getElementById('metarBtn'),
+  metarInfoLine: document.getElementById('metarInfoLine'),
+  calcPaDisplay: document.getElementById('calcPaDisplay'),
+  calcHwDisplay: document.getElementById('calcHwDisplay'),
   runBtn: document.getElementById('runBtn'),
   sharePdfBtn: document.getElementById('sharePdfBtn'),
   resetBtn: document.getElementById('resetBtn'),
@@ -59,6 +86,26 @@ function nextFrame(count = 1) {
     };
     tick(steps);
   });
+}
+
+
+function setWeightUnit(unit, convert = true) {
+  const prev = weightUnit;
+  weightUnit = (unit === 'lbs') ? 'lbs' : 'kg';
+  if (els.weightUnitBtn) els.weightUnitBtn.textContent = weightUnit;
+  if (els.weight) {
+    els.weight.placeholder = weightUnit === 'lbs' ? '14330' : '6500';
+    if (convert && prev !== weightUnit && els.weight.value !== '') {
+      const raw = Number(els.weight.value) || 0;
+      const kg = weightToKg(raw, prev);
+      els.weight.value = String(weightFromKg(kg, weightUnit));
+    }
+  }
+  try { localStorage.setItem('aw139_weight_unit', weightUnit); } catch { /* quota */ }
+}
+
+function setMetarInfoLine(text) {
+  if (els.metarInfoLine) els.metarInfoLine.textContent = text;
 }
 
 function modeLoadingCopy(mode, reason = '') {
@@ -591,7 +638,7 @@ function mapRtoConfig(config) {
 function mapVizLabel(v) { return ({ adc: 'Carta ADC', wat: 'Carta WAT', rto: 'Carta RTO', '': 'Em branco' })[v] || 'Em branco'; }
 
 function sanitizeDigitsInput(el, maxLen = null) {
-  const allowNegative = el === els.pa || el === els.oat;
+  const allowNegative = el === els.oat;
   let raw = String(el.value ?? '').trim();
   let negative = '';
   if (allowNegative && raw.startsWith('-')) negative = '-';
@@ -749,19 +796,171 @@ async function syncAdcSelection({ renderPreviewIfActive = false } = {}) {
   return selectedToken;
 }
 
+function calcPressureAltitude(qnh, elevationFt) {
+  return Math.round(elevationFt + (1013.25 - qnh) * 30);
+}
+
+function calcHeadwindComponent(windDirMag, windSpeedKt, runwayMagHeading) {
+  const angleDiff = (runwayMagHeading - windDirMag) * Math.PI / 180;
+  return Math.round(windSpeedKt * Math.cos(angleDiff));
+}
+
+function getRunwayMagHeading(baseId, runwayId, departureEnd) {
+  const db = AERODROME_DB[baseId];
+  if (!db) return null;
+  const rwy = db.runways[runwayId];
+  if (!rwy) return null;
+  if (rwy[departureEnd] != null) return rwy[departureEnd];
+  const plain = String(departureEnd).replace(/[LRC]/g, '');
+  return rwy[plain] ?? null;
+}
+
+function updateCalcDisplay() {
+  const baseId = els.base?.value;
+  const departure = parseDepartureSelection(els.departure?.value);
+  const dbEntry = AERODROME_DB[baseId];
+  const qnh = Number(els.qnh?.value || 0);
+  if (els.calcPaDisplay) {
+    if (qnh >= 800 && qnh <= 1100 && dbEntry) {
+      els.calcPaDisplay.textContent = `${calcPressureAltitude(qnh, dbEntry.elevationFt)} ft`;
+    } else {
+      els.calcPaDisplay.textContent = '—';
+    }
+  }
+  const windDirVal = els.windDir?.value;
+  const windSpeedKt = Number(els.windSpeed?.value || 0);
+  if (els.calcHwDisplay) {
+    const rwyHeading = departure.runwayId ? getRunwayMagHeading(baseId, departure.runwayId, departure.dep) : null;
+    if (rwyHeading != null && windDirVal !== '' && windSpeedKt >= 0) {
+      const hw = calcHeadwindComponent(Number(windDirVal || 0), windSpeedKt, rwyHeading);
+      els.calcHwDisplay.textContent = hw >= 0 ? `${hw} kt` : `${Math.abs(hw)} kt (cauda)`;
+    } else {
+      els.calcHwDisplay.textContent = '—';
+    }
+  }
+}
+
+function parseRawMetar(text) {
+  const raw = text.trim();
+  const wind = raw.match(/(?:^|\s)(VRB|\d{3})(\d{2,3})(?:G\d{2,3})?KT(?:\s|$)/);
+  const temp = raw.match(/(?:^|\s)(M?\d{2})\/(M?\d{2})(?:\s|$)/);
+  const qnh  = raw.match(/\bQ(\d{4})\b/);
+  const alt  = raw.match(/\bA(\d{4})\b/);
+  const parseDeg = (s) => s.startsWith('M') ? -parseInt(s.slice(1), 10) : parseInt(s, 10);
+  return {
+    rawOb: raw,
+    reportType: /^SPECI\b/i.test(raw) ? 'SPECI' : 'METAR',
+    wdir:  wind ? (wind[1] === 'VRB' ? 0 : parseInt(wind[1], 10)) : null,
+    wspd:  wind ? parseInt(wind[2], 10) : null,
+    temp:  temp ? parseDeg(temp[1]) : null,
+    altim: qnh  ? parseInt(qnh[1], 10)
+         : alt  ? Math.round(parseInt(alt[1], 10) / 100 * 33.8639)
+         : null,
+  };
+}
+
+async function fetchFromVatsim(icao) {
+  const resp = await fetch(
+    `https://metar.vatsim.net/metar.php?id=${encodeURIComponent(icao)}`,
+    { signal: AbortSignal.timeout(6000) }
+  );
+  if (!resp.ok) throw new Error(`VATSIM HTTP ${resp.status}`);
+  const text = (await resp.text()).trim();
+  if (!text || text.toLowerCase().includes('no metar')) throw new Error('Sem METAR VATSIM');
+  const parsed = parseRawMetar(text);
+  if (parsed.altim == null && parsed.temp == null) throw new Error('VATSIM parse failed');
+  return parsed;
+}
+
+async function fetchFromAviationWeather(icao, useProxy) {
+  const base = `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(icao)}&format=json&hoursBeforeNow=2&mostRecent=true`;
+  const url = useProxy ? `https://corsproxy.io/?${encodeURIComponent(base)}` : base;
+  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!resp.ok) throw new Error(`AWC HTTP ${resp.status}`);
+  const data = await resp.json();
+  const metar = Array.isArray(data) ? data[0] : (Array.isArray(data?.data) ? data.data[0] : data);
+  if (!metar || typeof metar !== 'object') throw new Error('Sem METAR disponível');
+  const rawText = String(metar.rawOb || metar.raw_text || metar.raw || '');
+  if (!metar.reportType) {
+    metar.reportType = /^SPECI\b/i.test(rawText) ? 'SPECI' : (metar.receiptType || 'METAR');
+  }
+  return metar;
+}
+
+async function fetchMetarData(icao) {
+  return Promise.any([
+    fetchFromVatsim(icao),
+    fetchFromAviationWeather(icao, false),
+    fetchFromAviationWeather(icao, true),
+  ]);
+}
+
+async function handleMetarFetch() {
+  const icao = els.base?.value;
+  if (!icao) return;
+  const btn = els.metarBtn;
+  const origText = btn.textContent;
+  btn.textContent = 'Buscando…';
+  btn.disabled = true;
+  try {
+    const metar = await fetchMetarData(icao);
+    if (metar.altim != null && els.qnh) els.qnh.value = String(Math.round(metar.altim));
+    if (metar.temp != null && els.oat) els.oat.value = String(Math.round(metar.temp));
+    if (metar.wdir && els.windDir) {
+      els.windDir.value = String(Math.round(metar.wdir) || 360);
+    }
+    if (metar.wspd != null && els.windSpeed) els.windSpeed.value = String(Math.round(metar.wspd));
+    updateCalcDisplay();
+    markCalculationDirty('METAR atualizado');
+    const rawMetar = String(metar.rawOb || metar.raw_text || metar.raw || '').trim();
+    const reportLabel = metar.reportType || 'METAR';
+    if (rawMetar) {
+      setMetarInfoLine(`${reportLabel} ${icao}: ${rawMetar}`);
+    } else {
+      const metarTime = String(metar.obsTime || metar.observationTime || metar.reportTime || metar.receiptTime || '—');
+      setMetarInfoLine(`${reportLabel} ${icao}: Hora ${metarTime} • QNH ${Math.round(Number(metar.altim || 0)) || "—"} • OAT ${Math.round(Number(metar.temp || 0)) || "—"}°C • Vento ${Math.round(Number(metar.wdir || 0)) || "---"}/${Math.round(Number(metar.wspd || 0)) || "--"}kt`);
+    }
+    btn.textContent = 'METAR OK ✓';
+    setTimeout(() => { if (btn.textContent === 'METAR OK ✓') btn.textContent = origText; }, 3000);
+  } catch (e) {
+    setMetarInfoLine(`METAR ${icao}: falha na consulta (${e?.message || 'erro desconhecido'}).`);
+    btn.textContent = 'Erro — tentar novamente';
+    setTimeout(() => { if (btn.textContent === 'Erro — tentar novamente') btn.textContent = origText; }, 4000);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function collectInputs() {
   const departure = parseDepartureSelection(els.departure.value);
+  const baseId = els.base.value;
+  const dbEntry = AERODROME_DB[baseId];
+  const qnh = Number(els.qnh?.value || 0);
+  const windDirMag = Number(els.windDir?.value || 0);
+  const windSpeedKt = Number(els.windSpeed?.value || 0);
+  let pressureAltitudeFt = 0;
+  if (qnh >= 800 && qnh <= 1100 && dbEntry) {
+    pressureAltitudeFt = calcPressureAltitude(qnh, dbEntry.elevationFt);
+  }
+  let headwindKt = 0;
+  if (departure.runwayId && els.windDir?.value !== '') {
+    const rwyHeading = getRunwayMagHeading(baseId, departure.runwayId, departure.dep);
+    if (rwyHeading != null) headwindKt = calcHeadwindComponent(windDirMag, windSpeedKt, rwyHeading);
+  }
   return {
-    base: els.base.value,
+    base: baseId,
     departureToken: departure.token,
     runwayId: departure.runwayId,
     departureEnd: departure.dep || els.departure.options[els.departure.selectedIndex]?.text || '',
     aircraftSet: els.aircraftSet.value || '7000',
     configuration: els.config.value,
-    pressureAltitudeFt: Number(els.pa.value || 0),
+    qnh,
+    windDirMag,
+    windSpeedKt,
+    pressureAltitudeFt,
     oatC: Number(els.oat.value || 0),
-    weightKg: Number(els.weight.value || 0),
-    headwindKt: Number(els.wind.value || 0),
+    weightKg: weightToKg(Number(els.weight.value || 0), weightUnit),
+    headwindKt,
     registration: ''
   };
 }
@@ -772,6 +971,9 @@ function pushSharedContext(input, patch = {}) {
     oatC: input.oatC,
     weightKg: input.weightKg,
     headwindKt: input.headwindKt,
+    qnh: input.qnh,
+    windDirMag: input.windDirMag,
+    windSpeedKt: input.windSpeedKt,
     adcBase: input.base,
     adcDepartureEnd: input.departureEnd,
     adcDepartureToken: input.departureToken || '',
@@ -780,6 +982,8 @@ function pushSharedContext(input, patch = {}) {
     cataConfiguration: input.configuration,
     aircraftRegistration: input.registration || '',
     cataProcedure: 'clear',
+    cataWeightUnit: weightUnit,
+    cataWeightRaw: Number(els.weight.value || 0),
     ...patch
   };
   saveCtx(merged);
@@ -792,11 +996,18 @@ function restoreInputsFromContext() {
   if (ctx.cataAircraftSet) els.aircraftSet.value = ctx.cataAircraftSet;
   if (ctx.cataConfiguration) els.config.value = ctx.cataConfiguration;
   if (ctx.aircraftRegistration && els.registration) els.registration.value = ctx.aircraftRegistration;
-  if (ctx.pressureAltitudeFt != null) els.pa.value = String(ctx.pressureAltitudeFt);
+  if (ctx.qnh != null && els.qnh) els.qnh.value = String(ctx.qnh);
   if (ctx.oatC != null) els.oat.value = String(ctx.oatC);
-  if (ctx.weightKg != null) els.weight.value = String(ctx.weightKg);
-  if (ctx.headwindKt != null) els.wind.value = String(ctx.headwindKt);
+  if (ctx.cataWeightUnit) setWeightUnit(ctx.cataWeightUnit, false);
+  if (ctx.cataWeightRaw != null) {
+    els.weight.value = String(ctx.cataWeightRaw);
+  } else if (ctx.weightKg != null) {
+    els.weight.value = String(weightFromKg(ctx.weightKg, weightUnit));
+  }
+  if (ctx.windDirMag != null && els.windDir) els.windDir.value = String(ctx.windDirMag);
+  if (ctx.windSpeedKt != null && els.windSpeed) els.windSpeed.value = String(ctx.windSpeedKt);
   if (ctx.cataVizMode) els.visualSelect.value = ctx.cataVizMode;
+  updateCalcDisplay();
 }
 
 async function runWAT(input) {
@@ -981,23 +1192,32 @@ function renderResults(wat, rto, adc) {
       return best;
     }, null);
   const runwayAsdaOk = fullRunwayRow ? fullRunwayRow.go : false;
-  const overallOk = watOk && runwayAsdaOk;
+  const tailwindNoGo = Number.isFinite(Number(adc?.input?.headwindKt)) && Number(adc?.input?.headwindKt) < 0;
+  const overallOk = watOk && runwayAsdaOk && !tailwindNoGo;
 
-  els.watMax.textContent = wat?.maxText || '—';
+  if (wat?.maxWeightKg != null) {
+    els.watMax.textContent = `${weightFromKg(wat.maxWeightKg, weightUnit)} ${weightUnit}`;
+  } else {
+    els.watMax.textContent = wat?.maxText || '—';
+  }
   els.rtoMetric.textContent = rto?.metricText || '—';
 
   if (wat?.marginKg == null) {
     els.watSummary.textContent = wat?.summary || 'Sem cálculo ainda.';
     els.watMarginSummary.textContent = '—';
   } else if (watOk) {
+    const marginDisp = weightFromKg(Math.round(wat.marginKg), weightUnit);
     els.watSummary.textContent = 'GO — peso dentro do limite WAT.';
-    els.watMarginSummary.textContent = `+${Math.round(wat.marginKg)} kg de margem`;
+    els.watMarginSummary.textContent = `+${marginDisp} ${weightUnit} de margem`;
   } else {
+    const marginDisp = weightFromKg(Math.abs(Math.round(wat.marginKg)), weightUnit);
     els.watSummary.textContent = 'NO GO — item negativo: WAT abaixo do peso requerido.';
-    els.watMarginSummary.textContent = `${Math.abs(Math.round(wat.marginKg))} kg acima do limite`;
+    els.watMarginSummary.textContent = `${marginDisp} ${weightUnit} acima do limite`;
   }
 
-  if (!decisionRows.length) {
+  if (tailwindNoGo) {
+    els.rtoSummary.textContent = 'NO GO — vento de cauda na cabeceira selecionada. Selecione a cabeceira oposta.';
+  } else if (!decisionRows.length) {
     els.rtoSummary.textContent = rto?.summary || 'Sem cálculo ainda.';
   } else if (runwayAsdaOk) {
     els.rtoSummary.textContent = badPoints.length
@@ -1061,7 +1281,7 @@ function sameCalcInputsExceptAdc(current, saved = {}) {
 function invalidateAdcDecisionPanel(reason = 'seleção alterada') {
   const detail = /base/i.test(reason) ? 'base selecionada' : /cabeceira/i.test(reason) ? 'cabeceira selecionada' : 'seleção atual';
   els.statusChip.textContent = 'Atualizando decisão';
-  els.statusChip.className = 'status-chip warn';
+  els.statusChip.className = 'status-chip pending';
   els.resultCard.classList.remove('result-ok', 'result-bad');
   els.resultCard.classList.add('pending');
   els.rtoBox.classList.remove('ok', 'bad');
@@ -1093,6 +1313,10 @@ async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
 
   if (!canReuse) {
     if (!isBaseChange) syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
+    els.statusChip.textContent = 'Recalcular para atualizar decisão';
+    els.statusChip.className = 'status-chip pending';
+    els.rtoSummary.textContent = 'A decisão depende de novo cálculo com os parâmetros atuais.';
+    els.decisionBody.innerHTML = '<tr><td colspan="2" class="muted-cell">Recalcule para atualizar a tabela de decisão.</td></tr>';
     return;
   }
 
@@ -1950,7 +2174,7 @@ function createCataPdfModulePageCanvas(mode, title, srcCanvas) {
   drawMeta('Cabeceira', inputs.departureEnd || '—', margin + 330, metaY + 48);
   drawMeta('PA', `${inputs.pressureAltitudeFt || 0} ft`, margin + 560, metaY + 48);
   drawMeta('OAT', `${inputs.oatC || 0} °C`, margin + 760, metaY + 48);
-  drawMeta('Peso', `${inputs.weightKg || 0} kg`, margin + 980, metaY + 48);
+  drawMeta('Peso', weightUnit === 'lbs' ? `${weightFromKg(inputs.weightKg || 0, 'lbs')} lbs` : `${inputs.weightKg || 0} kg`, margin + 980, metaY + 48);
   drawMeta('Headwind', `${inputs.headwindKt || 0} kt`, margin + 1230, metaY + 48);
   drawMeta('Configuração', els.config.options[els.config.selectedIndex]?.text || inputs.configuration || '—', margin + 28, metaY + 136);
   drawMeta('Status', els.statusChip.textContent || '—', margin + 560, metaY + 136);
@@ -2089,7 +2313,7 @@ function createCataPdfCanvas() {
   rowText('PA', `${inputs.pressureAltitudeFt || 0} ft`, margin + 700, y + 42);
   rowText('OAT', `${inputs.oatC || 0} °C`, margin + 980, y + 42);
   rowText('Configuração', els.config.options[els.config.selectedIndex]?.text || inputs.configuration || '—', margin + 28, y + 118);
-  rowText('Peso', `${inputs.weightKg || 0} kg`, margin + 520, y + 118);
+  rowText('Peso', weightUnit === 'lbs' ? `${weightFromKg(inputs.weightKg || 0, 'lbs')} lbs` : `${inputs.weightKg || 0} kg`, margin + 520, y + 118);
   rowText('Headwind', `${inputs.headwindKt || 0} kt`, margin + 760, y + 118);
   rowText('Status', els.statusChip.textContent || '—', margin + 28, y + 188);
   rowText('WAT', els.watMax.textContent || '—', margin + 520, y + 188);
@@ -2235,10 +2459,14 @@ function resetFlowForm() {
   if (els.aircraftSet) els.aircraftSet.value = '7000';
   if (els.config) els.config.value = 'standard';
   if (els.registration) els.registration.value = '';
-  if (els.pa) els.pa.value = '';
+  if (els.qnh) els.qnh.value = '';
   if (els.oat) els.oat.value = '';
   if (els.weight) els.weight.value = '';
-  if (els.wind) els.wind.value = '';
+  setMetarInfoLine('METAR: aguardando consulta.');
+  if (els.windDir) els.windDir.value = '';
+  if (els.windSpeed) els.windSpeed.value = '';
+  if (els.calcPaDisplay) els.calcPaDisplay.textContent = '—';
+  if (els.calcHwDisplay) els.calcHwDisplay.textContent = '—';
   if (els.base?.options?.length) els.base.selectedIndex = 0;
   if (els.departure?.options?.length) els.departure.selectedIndex = 0;
   resetResultsPanel();
@@ -2253,11 +2481,12 @@ function setupAutoAdvance() {
     { el: els.aircraftSet, next: els.config },
     { el: els.config, next: els.base },
     { el: els.base, next: els.departure },
-    { el: els.departure, next: els.pa },
-    { el: els.pa, next: els.oat, minDigits: 3, maxDigits: 5 },
-    { el: els.oat, next: els.weight, minDigits: 2, maxDigits: 2 },
-    { el: els.weight, next: els.wind, minDigits: 4, maxDigits: 4 },
-    { el: els.wind, next: els.runBtn, minDigits: 2, maxDigits: 2 },
+    { el: els.departure, next: els.qnh },
+    { el: els.qnh, next: els.oat, minDigits: 4, maxDigits: 4 },
+    { el: els.oat, next: els.windDir, minDigits: 2, maxDigits: 2 },
+    { el: els.windDir, next: els.windSpeed, minDigits: 3, maxDigits: 3 },
+    { el: els.windSpeed, next: els.weight, minDigits: 2, maxDigits: 2 },
+    { el: els.weight, next: els.runBtn, minDigits: null, maxDigits: null },
   ];
 
   rules.forEach((rule) => {
@@ -2273,9 +2502,11 @@ function setupAutoAdvance() {
 
 
     rule.el.addEventListener('input', () => {
-      sanitizeDigitsInput(rule.el, rule.maxDigits);
+      const effectiveMax = rule.el === els.weight ? (weightUnit === 'lbs' ? 5 : 4) : rule.maxDigits;
+      const effectiveMin = rule.el === els.weight ? (weightUnit === 'lbs' ? 5 : 4) : rule.minDigits;
+      sanitizeDigitsInput(rule.el, effectiveMax);
       const digits = digitsOnlyLength(rule.el);
-      if (rule.el === els.oat ? digits === rule.minDigits : digits >= rule.minDigits) {
+      if (rule.el === els.oat ? digits === effectiveMin : digits >= effectiveMin) {
         focusNext(rule.next);
       }
     });
@@ -2288,7 +2519,6 @@ function setupAutoAdvance() {
     });
   });
 
-  els.paNegativeBtn?.addEventListener('click', () => toggleSignedInput(els.pa, 5));
   els.oatNegativeBtn?.addEventListener('click', () => toggleSignedInput(els.oat, 2));
 }
 
@@ -2301,8 +2531,22 @@ async function runFlow() {
   els.statusChip.className = 'status-chip warn';
   els.resultCard.classList.remove('result-ok', 'result-bad');
   try {
-    const [wat, rto] = await Promise.all([runWAT(input), runRTO(input)]);
-    const adc = await runADC(input, rto);
+    const tailwindNoGo = Number.isFinite(Number(input.headwindKt)) && Number(input.headwindKt) < 0;
+    const wat = await runWAT(input);
+    let rto;
+    let adc;
+
+    if (tailwindNoGo) {
+      rto = {
+        metricText: '—',
+        summary: 'NO GO — vento de cauda na cabeceira selecionada. Selecione a cabeceira oposta.'
+      };
+      adc = { input, rows: [], basisMetric: 'ASDA' };
+    } else {
+      rto = await runRTO(input);
+      adc = await runADC(input, rto);
+    }
+
     clearAllModeDirty();
     clearAdcDirty();
     renderResults(wat, rto, adc);
@@ -2330,9 +2574,15 @@ function bindEvents() {
   els.resetBtn?.addEventListener('click', resetFlowForm);
   els.visualSelect.addEventListener('change', e => setVisualization(e.target.value, !!e.target.value));
   document.querySelectorAll('.viewer-tab').forEach(btn => btn.addEventListener('click', () => setVisualization(btn.dataset.viz, true)));
-  els.base.addEventListener('change', () => { refreshAdcDecisionForSelection('a base').catch(console.warn); });
-  els.departure.addEventListener('change', () => { refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
-  [els.aircraftSet, els.config, els.pa, els.oat, els.weight, els.wind].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
+  els.base.addEventListener('change', () => { updateCalcDisplay(); refreshAdcDecisionForSelection('a base').catch(console.warn); });
+  els.departure.addEventListener('change', () => { updateCalcDisplay(); refreshAdcDecisionForSelection('a cabeceira').catch(console.warn); });
+  [els.aircraftSet, els.config, els.qnh, els.oat, els.weight, els.windDir, els.windSpeed].forEach(el => el?.addEventListener('change', () => { markCalculationDirty('parâmetros alterados'); }));
+  els.weightUnitBtn?.addEventListener('click', () => {
+    setWeightUnit(weightUnit === 'kg' ? 'lbs' : 'kg');
+    markCalculationDirty('unidade de peso alterada');
+  });
+  [els.qnh, els.windDir, els.windSpeed].forEach(el => el?.addEventListener('input', updateCalcDisplay));
+  els.metarBtn?.addEventListener('click', handleMetarFetch);
   els.openWATBtn?.addEventListener('click', () => {
     saveCurrentInputsForModuleOpen();
     location.href = '../wat/?back=1&return=' + encodeURIComponent('../cata/');
@@ -2419,6 +2669,7 @@ function bindEvents() {
 }
 
 window.addEventListener('load', async () => {
+  try { const saved = localStorage.getItem('aw139_weight_unit'); if (saved === 'lbs') setWeightUnit('lbs', false); } catch { /* quota */ }
   bindEvents();
   setupAutoAdvance();
   updateSharePdfButtonLabel();
