@@ -19,16 +19,14 @@ html, body{
 body.module-shell-wat,
 body.module-shell-rto,
 body.module-shell-cata,
-body.module-shell-adc,
-body.module-shell-dropdown{
+body.module-shell-adc{
   min-height:100svh;
 }
 
 body.module-shell-wat .topbar,
 body.module-shell-rto .topbar,
 body.module-shell-cata .topbar,
-body.module-shell-adc .topbar,
-body.module-shell-dropdown .topbar{
+body.module-shell-adc .topbar{
   border-radius:var(--aw-radius) !important;
 }
 
@@ -36,23 +34,10 @@ body.module-shell-wat .card,
 body.module-shell-rto .card,
 body.module-shell-cata .panel,
 body.module-shell-cata .viewer-pane,
-body.module-shell-adc .pane,
-body.module-shell-dropdown .card{
+body.module-shell-adc .pane{
   border-radius:var(--aw-radius) !important;
   box-shadow:var(--aw-panel-shadow);
 }
-
-body.module-shell-dropdown .app-shell{
-  width:min(100%, 760px);
-  margin:0 auto;
-  padding:max(10px, var(--aw-safe-top)) max(10px, var(--aw-safe-right)) max(14px, var(--aw-safe-bottom)) max(10px, var(--aw-safe-left)) !important;
-  gap:var(--aw-gap) !important;
-  display:flex !important;
-  flex-direction:column;
-  align-items:stretch;
-  min-height:100svh;
-}
-body.module-shell-dropdown .topbar{border-radius:var(--aw-radius) !important;}
 
 body.module-shell-wat .app-shell,
 body.module-shell-rto .app-shell{
