@@ -96,6 +96,10 @@
     try {
       const reg = await navigator.serviceWorker.register(cfg.url, { scope: cfg.scope });
       if (reg.waiting) notifyUpdate(reg);
+      // No app instalado (iOS) voltar do segundo plano não navega; procura versão nova ao reabrir.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
       reg.addEventListener('updatefound', () => {
         const worker = reg.installing;
         if (!worker) return;

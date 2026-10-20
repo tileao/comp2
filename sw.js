@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v42';
+const CACHE_NAME = 'aw139-companion-root-v43';
 const PRECACHE = [
   "./",
   "./README.md",
@@ -8,7 +8,6 @@ const PRECACHE = [
   "./adc/base_pack_template_v4.json",
   "./adc/base_pack_template_v5.json",
   "./adc/index.html",
-  "./adc/theme.css",
   "./adc/theme.css",
   "./adc/sbcb_builtin_pack_v3.json",
   "./adc/sbcb_builtin_pack_v4.json",
@@ -204,9 +203,25 @@ const PRECACHE = [
   "./wat/test_overlay_case.png"
 ];
 
+// Arquivos sem os quais o app não abre: se um deles falhar, a instalação falha e a versão anterior continua.
+const CORE = /(\/|\.(html|js|css|json|svg|webmanifest))$/i;
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    // Sem repetidos: cache.addAll rejeita a lista inteira se houver URL duplicada.
+    const urls = [...new Set(PRECACHE)];
+    const results = await Promise.allSettled(urls.map(async (url) => {
+      // cache:'reload' ignora o cache HTTP do navegador, para não gravar cópias antigas na versão nova.
+      const response = await fetch(new Request(url, { cache: 'reload' }));
+      if (!response.ok) throw new Error(url + ' ' + response.status);
+      await cache.put(url, response);
+    }));
+    // Imagens e PDFs que falharem são baixados depois, no primeiro uso com internet.
+    const coreFailed = results.some((r, i) => r.status === 'rejected' && CORE.test(urls[i]));
+    if (coreFailed) throw new Error('Falha ao baixar arquivos essenciais do app');
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -220,28 +235,56 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
+// HTML, JS, CSS, JSON e SVG: rede primeiro (com limite de tempo) e cache como reserva offline.
+// Imagens e PDFs pesados: cache primeiro.
+const NETWORK_FIRST = /\.(html|js|css|json|svg|webmanifest)$/i;
+const NETWORK_TIMEOUT_MS = 3500;
+
+async function putInCache(request, response) {
+  if (!response || !response.ok) return;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response);
+}
+
+async function networkFirst(request) {
+  // Pela URL: um Request de navegação não aceita opções extras.
+  const network = fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }).then((fresh) => {
+    if (fresh.ok) putInCache(request, fresh.clone());
+    return fresh;
+  });
+  network.catch(() => {});
+  const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS, null));
+  let fresh = null;
+  try {
+    fresh = await Promise.race([network, timeout]);
+    if (fresh && fresh.ok) return fresh;
+  } catch (_) {}
+  const cached = await caches.match(request, { ignoreSearch: true });
+  if (cached) return cached;
+  try {
+    return fresh || await network;
+  } catch (error) {
+    if (request.mode === 'navigate') {
+      const offline = await caches.match('./offline.html', { ignoreSearch: true });
+      if (offline) return offline;
+    }
+    throw error;
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request, { ignoreSearch: true });
+  if (cached) return cached;
+  const fresh = await fetch(request);
+  putInCache(request, fresh.clone());
+  return fresh;
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-
-  event.respondWith((async () => {
-    const cached = await caches.match(request, { ignoreSearch: true });
-    if (cached) return cached;
-    try {
-      const fresh = await fetch(request);
-      if (fresh && fresh.ok) {
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(request, fresh.clone());
-      }
-      return fresh;
-    } catch (error) {
-      if (request.mode === 'navigate') {
-        const offline = await caches.match('./offline.html', { ignoreSearch: true });
-        if (offline) return offline;
-      }
-      throw error;
-    }
-  })());
+  const isNetworkFirst = request.mode === 'navigate' || url.pathname.endsWith('/') || NETWORK_FIRST.test(url.pathname);
+  event.respondWith(isNetworkFirst ? networkFirst(request) : cacheFirst(request));
 });
