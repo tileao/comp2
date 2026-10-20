@@ -207,10 +207,10 @@
       return;
     }
     if (state.platform === 'ios') {
-      installStatus.textContent = 'Instale pela Safari para abrir em tela cheia, com aparência de app e acesso rápido aos módulos.';
+      installStatus.textContent = 'Instale pela Safari para abrir em tela cheia, com aparência de app e acesso rápido aos fluxos.';
       return;
     }
-    installStatus.textContent = state.deferredPrompt ? 'Este navegador já permite instalar o app direto da tela inicial.' : 'Instale pelo navegador para abrir em tela cheia, com aparência de app e acesso rápido aos módulos.';
+    installStatus.textContent = state.deferredPrompt ? 'Este navegador já permite instalar o app direto da tela inicial.' : 'Instale pelo navegador para abrir em tela cheia, com aparência de app e acesso rápido aos fluxos.';
   }
 
   function basePrefix(){
