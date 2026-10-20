@@ -224,15 +224,15 @@
     if (!document.getElementById('aw139GlobalTabBarStyles')) {
       const style = document.createElement('style');
       style.id = 'aw139GlobalTabBarStyles';
-      style.textContent = '.app-tab-bar{position:fixed;left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom));z-index:9998;background:rgba(15,23,42,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:8px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;box-shadow:0 18px 40px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.tab-item{display:grid;justify-items:center;gap:2px;padding:6px;border-radius:12px;color:#bfd1e3;text-decoration:none}.tab-item.active{background:rgba(47,167,160,.22);color:#e9fbfa}.tab-icon{font-size:18px;line-height:1}.tab-label{font-size:11px;font-weight:700;text-align:center}body{padding-bottom:max(92px, calc(80px + env(safe-area-inset-bottom)))}';
+      style.textContent = '.app-tab-bar{position:fixed;left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom));z-index:9998;background:rgba(15,23,42,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:8px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;box-shadow:0 18px 40px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.tab-item{display:grid;justify-items:center;gap:2px;padding:6px;border-radius:12px;color:#bfd1e3;text-decoration:none}.tab-item.active{background:rgba(47,167,160,.22);color:#e9fbfa}.tab-icon{font-size:18px;line-height:1;display:grid;place-items:center}.tab-icon .aw-icon{width:22px;height:22px}.tab-label{font-size:11px;font-weight:700;text-align:center}body{padding-bottom:max(92px, calc(80px + env(safe-area-inset-bottom)))}';
       document.head.appendChild(style);
     }
     const prefix = basePrefix();
     const items = [
-      { key: 'home', icon: '🏠', label: 'Home', href: prefix + 'index.html' },
-      { key: 'cata', icon: '📋', label: 'Cat A', href: prefix + 'cata/' },
-      { key: 'decolagem-offshore', icon: '🚁', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' },
-      { key: 'pouso-offshore', icon: '🛬', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' }
+      { key: 'home', icon: 'home', label: 'Home', href: prefix + 'index.html' },
+      { key: 'cata', icon: 'cata', label: 'Cat A', href: prefix + 'cata/' },
+      { key: 'decolagem-offshore', icon: 'takeoff', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' },
+      { key: 'pouso-offshore', icon: 'landing', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' }
     ];
     const path = pagePath();
     const currentKey = path.endsWith('/index.html') || path === '/' ? 'home'
@@ -250,7 +250,7 @@
     nav.innerHTML = items.map((item) => {
       const active = item.key === currentKey ? ' active' : '';
       const aria = item.key === currentKey ? ' aria-current="page"' : '';
-      return '<a href="' + item.href + '" class="tab-item' + active + '"' + aria + '><span class="tab-icon">' + item.icon + '</span><span class="tab-label">' + item.label + '</span></a>';
+      return '<a href="' + item.href + '" class="tab-item' + active + '"' + aria + '><span class="tab-icon"><svg class="aw-icon" aria-hidden="true"><use href="' + prefix + 'assets/icons.svg#i-' + item.icon + '"/></svg></span><span class="tab-label">' + item.label + '</span></a>';
     }).join('');
   }
 

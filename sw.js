@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v37';
+const CACHE_NAME = 'aw139-companion-root-v38';
 const PRECACHE = [
   "./",
   "./README.md",
@@ -61,6 +61,7 @@ const PRECACHE = [
   "./assets/icon-512.png",
   "./assets/icon-source.png",
   "./assets/icon.svg",
+  "./assets/icons.svg",
   "./cata/app.js",
   "./cata/index.html",
   "./cata/styles.css",

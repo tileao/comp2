@@ -74,11 +74,12 @@ button{font:inherit}
 .flow-icon{
   width:52px;height:52px;border-radius:14px;
   display:grid;place-items:center;
-  font-size:28px;line-height:1;
+  color:#cfe0f1;
   background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.08);
 }
-.flow-primary .flow-icon{background:rgba(47,167,160,.22);border-color:rgba(47,167,160,.4)}
+.flow-primary .flow-icon{color:#7fe0d8;background:rgba(47,167,160,.22);border-color:rgba(47,167,160,.4)}
+.flow-icon .aw-icon{width:30px;height:30px}
 .flow-text{display:grid;gap:4px;min-width:0}
 .flow-title{font-size:18px;font-weight:800;line-height:1.2}
 .flow-desc{font-size:14px;line-height:1.35;color:var(--muted)}
@@ -142,7 +143,8 @@ button{font:inherit}
 }
 .tab-item{display:grid;justify-items:center;gap:2px;padding:6px;border-radius:12px;color:#bfd1e3}
 .tab-item.active{background:rgba(47,167,160,.22);color:#e9fbfa}
-.tab-icon{font-size:18px;line-height:1}
+.tab-icon{font-size:18px;line-height:1;display:grid;place-items:center}
+.tab-icon .aw-icon{width:22px;height:22px}
 .tab-label{font-size:11px;font-weight:700}
 
 @media (max-width:760px){
