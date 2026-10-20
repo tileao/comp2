@@ -231,8 +231,8 @@
     const items = [
       { key: 'home', icon: '🏠', label: 'Home', href: prefix + 'index.html' },
       { key: 'cata', icon: '📋', label: 'Cat A', href: prefix + 'cata/' },
-      { key: 'pouso-offshore', icon: '🛬', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' },
-      { key: 'decolagem-offshore', icon: '🚁', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' }
+      { key: 'decolagem-offshore', icon: '🚁', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' },
+      { key: 'pouso-offshore', icon: '🛬', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' }
     ];
     const path = pagePath();
     const currentKey = path.endsWith('/index.html') || path === '/' ? 'home'
