@@ -20,10 +20,10 @@
     </g>
   </symbol>
 
-  <!-- Cat A Clear Area: helicóptero subindo a partir da pista -->
+  <!-- Cat A Clear Area: helicóptero (proa à direita) decolando da pista -->
   <symbol id="i-cata" viewBox="0 0 24 24">
     <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <g transform="rotate(-10 12 10) translate(0 -1.5)">
+      <g transform="translate(24 0) scale(-1 1) rotate(-10 12 10) translate(0 -1.5)">
         <path d="M3.5 4.5h15"/>
         <path d="M11 4.5v3"/>
         <path d="M15.5 7.5H9a4 4 0 0 0-4 4 1.5 1.5 0 0 0 1.5 1.5h9z"/>
@@ -36,7 +36,7 @@
     </g>
   </symbol>
 
-  <!-- Plataforma offshore (base comum) -->
+  <!-- Unidade marítima (base comum) -->
   <symbol id="i-rig" viewBox="0 0 24 24">
     <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3.5 14h17"/>
@@ -46,7 +46,7 @@
     </g>
   </symbol>
 
-  <!-- Decolagem Offshore: plataforma + seta para cima -->
+  <!-- Decolagem Offshore: UM + seta para cima -->
   <symbol id="i-takeoff" viewBox="0 0 24 24">
     <use href="#i-rig"/>
     <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -55,7 +55,7 @@
     </g>
   </symbol>
 
-  <!-- Pouso Offshore: plataforma + seta para baixo -->
+  <!-- Pouso Offshore: UM + seta para baixo -->
   <symbol id="i-landing" viewBox="0 0 24 24">
     <use href="#i-rig"/>
     <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
