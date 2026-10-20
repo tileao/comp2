@@ -169,3 +169,11 @@ body.fullscreen-body{overflow:hidden}
 .weight-input-row select{flex:0 0 74px;max-width:74px;}
 .mini-select{height:38px;min-height:38px;padding:0 10px;font-size:13px;width:100%;margin-top:0}
 .metar-info-line{font-size:12px;color:#cfe2f5;opacity:.9;margin:-2px 0 8px 0;min-height:16px}
+
+/* iPad / tablet em pé: entrada + resultado à esquerda, carta mais larga à direita */
+@media (min-width:641px) and (max-width:1100px) and (orientation:portrait){
+  .workspace{grid-template-columns:minmax(340px,44%) minmax(0,1fr)}
+  .viewer-pane{min-height:0}
+  .sidebar .field input,.sidebar .field select{font-size:13px;padding:0 8px}
+  .sidebar .weight-input-row .mini-select{padding:0 4px}
+}

@@ -296,6 +296,14 @@ body.module-shell-adc .decision-table-wrap{
   body.module-shell-adc .viz-wrap{
     min-height:460px !important;
   }
+  /* Cat A em pé no tablet: entrada + resultado à esquerda, visualização mais larga à direita */
+  body.module-shell-cata .workspace{
+    grid-template-columns:minmax(330px,42%) minmax(0,1fr) !important;
+    grid-template-areas:"sidebar viewer" !important;
+    align-items:start;
+  }
+  body.module-shell-cata .sidebar .field input,
+  body.module-shell-cata .sidebar .field select{font-size:13px;padding-left:8px;padding-right:8px}
 }
 
 @media (min-width:768px) and (orientation:landscape){
