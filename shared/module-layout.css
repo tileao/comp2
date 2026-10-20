@@ -296,6 +296,12 @@ body.module-shell-adc .decision-table-wrap{
   body.module-shell-adc .viz-wrap{
     min-height:460px !important;
   }
+  /* Cat A em pé no tablet: entrada e resultado lado a lado */
+  body.module-shell-cata .sidebar{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    align-items:stretch;
+  }
 }
 
 @media (min-width:768px) and (orientation:landscape){
