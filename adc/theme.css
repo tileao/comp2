@@ -90,3 +90,30 @@ html:not(.adc-embed) .decision-table td{font-size:14px}
 @media (max-width:767px){
   html:not(.adc-embed) .topbar{margin:8px 8px 0 !important}
 }
+
+/* iPad / tablet deitado: entrada + ASDA à esquerda, carta inteira à direita */
+@media (min-width:900px) and (orientation:landscape){
+  html:not(.adc-embed) body.module-shell-adc .shell{
+    grid-template-columns:minmax(340px,400px) minmax(0,1fr) !important;
+    grid-template-rows:auto 1fr;
+    align-items:start !important;
+    column-gap:12px !important;
+    row-gap:12px !important;
+  }
+  html:not(.adc-embed) body.module-shell-adc .pane.right,
+  html:not(.adc-embed) body.module-shell-adc .pane.right > .workspace{display:contents !important}
+  html:not(.adc-embed) body.module-shell-adc .pane.left{grid-column:1;grid-row:1}
+  html:not(.adc-embed) body.module-shell-adc .result-panel{grid-column:1;grid-row:2;align-self:start;border-radius:18px}
+  html:not(.adc-embed) body.module-shell-adc .chart-frame{
+    grid-column:2;grid-row:1 / span 2;
+    position:sticky;top:12px;align-self:start;
+    background:var(--app-panel) !important;
+    padding:12px;
+  }
+  /* a carta é dimensionada pela largura: limita a largura para caber na altura útil */
+  html:not(.adc-embed) body.module-shell-adc .chart-frame .viz-wrap{
+    width:min(100%, calc((100svh - 210px) * .66)) !important;
+    margin:0 auto;
+    min-height:0 !important;
+  }
+}
