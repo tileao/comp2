@@ -1057,11 +1057,14 @@
   </style>
   <link rel="stylesheet" href="../shared/pwa.css">
   <link rel="stylesheet" href="../shared/module-layout.css">
+  <script>if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('adc-embed');</script>
+  <link rel="stylesheet" href="theme.css">
 </head>
 
 <body>
   <header class="topbar module-topbar adc-module-topbar">
     <div class="topbar-left">
+      <a class="nav-btn" href="../index.html" aria-label="Voltar para a Home">⥢</a>
       <div class="product-tag no-sep">
         <div class="product-icon"><img src="../assets/icon-192.png" alt=""></div>
         <div>
@@ -1094,7 +1097,7 @@
         <section class="result-panel">
           <div class="result-top">
             <div>
-              <div class="result-title">ASDA</div>
+              <div class="result-title">ASDA da cabeceira</div>
               <div class="result-meta" id="declaredMeta"></div>
             </div>
             <div class="result-value" id="asdaMetric">-</div>
@@ -1244,27 +1247,34 @@
 
     <aside class="pane left">
       <div class="config-panel">
-        <div class="config-header">Configuration</div>
+        <div class="config-intro">
+          <div class="panel-kicker">Módulo avulso</div>
+          <h1 class="panel-heading">ADC</h1>
+          <p class="panel-helper">Já tem o RTO calculado? Escolha a base e a cabeceira e confira a ASDA disponível em cada ponto.</p>
+        </div>
 
-        <section class="config-card compact">
-          <label for="baseSelect">Base</label>
-          <select id="baseSelect"></select>
-        </section>
+        <div class="section-label">Aeródromo</div>
+        <div class="form-grid form-grid-2">
+          <section class="config-card compact field">
+            <label for="baseSelect">Base</label>
+            <select id="baseSelect"></select>
+          </section>
 
-        <section class="config-card compact">
-          <label for="departureEndSelect">Cabeceira</label>
-          <select id="departureEndSelect"></select>
-        </section>
+          <section class="config-card compact field">
+            <label for="departureEndSelect">Cabeceira</label>
+            <select id="departureEndSelect"></select>
+          </section>
+        </div>
 
-        <section class="config-card compact">
-          <label for="rtoInput">RTO requerido</label>
-          <input id="rtoInput" type="number" min="0" step="1" value="540" />
-          <div class="field-caption">Informe apenas o RTO e selecione a cabeceira. A pista correspondente é definida automaticamente.</div>
+        <div class="section-label">Performance</div>
+        <section class="config-card compact field">
+          <label for="rtoInput">RTO requerido (m)</label>
+          <input id="rtoInput" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="1" value="540" />
         </section>
 
         <section class="config-card">
           <div class="action-row">
-            <button class="primary" id="analyzeBtn">Analisar</button>
+            <button class="primary" id="analyzeBtn">Analisar ADC</button>
           </div>
         </section>
       </div>

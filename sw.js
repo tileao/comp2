@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v35';
+const CACHE_NAME = 'aw139-companion-root-v37';
 const PRECACHE = [
   "./",
   "./README.md",
@@ -8,6 +8,7 @@ const PRECACHE = [
   "./adc/base_pack_template_v4.json",
   "./adc/base_pack_template_v5.json",
   "./adc/index.html",
+  "./adc/theme.css",
   "./adc/sbcb_builtin_pack_v3.json",
   "./adc/sbcb_builtin_pack_v4.json",
   "./adc/sbcb_builtin_pack_v5.json",

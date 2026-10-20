@@ -4,7 +4,6 @@ const resumeCard=document.getElementById('resumeCard');
 const resumeTitle=document.getElementById('resumeTitle');
 const resumeSummary=document.getElementById('resumeSummary');
 const resumeChips=document.getElementById('resumeChips');
-const continueText=document.getElementById('continueText');
 const continueLink=document.getElementById('continueLink');
 const installGuideBtn=document.getElementById('installGuideBtn');
 const installStatusText=document.getElementById('installStatusText');
@@ -21,8 +20,6 @@ function chip(text, cls='chip'){
 }
 
 function routeForModule(lastModule){
-  if(lastModule==='wat') return 'wat/?back=1&return=../index.html';
-  if(lastModule==='rto') return 'rto/?back=1&return=../index.html';
   if(lastModule==='adc') return 'adc/?back=1&return=../index.html';
   if(lastModule==='pouso-offshore') return 'pouso-offshore/';
   if(lastModule==='decolagem-offshore') return 'decolagem-offshore/';
@@ -55,15 +52,14 @@ function render(){
 
   if(!hasCtx){
     if(resumeTitle) resumeTitle.textContent='Sem contexto salvo';
-    if(resumeSummary) resumeSummary.textContent='Abra um fluxo ou módulo para começar.';
-    if(continueText) continueText.textContent='Ainda não há uma última sessão salva.';
+    if(resumeSummary) resumeSummary.textContent='Abra um fluxo para começar.';
     setContinueDisabled();
-    if(resumeCard) resumeCard.hidden=false;
+    if(resumeCard) resumeCard.hidden=true;
     return;
   }
 
   const lastModule=ctx.lastModule||'cata';
-  const lastLabel=({wat:'WAT',rto:'RTO',adc:'ADC','pouso-offshore':'Pouso Offshore','decolagem-offshore':'Decolagem Offshore'})[lastModule]||'Cat A Clear Area';
+  const lastLabel=({adc:'ADC','pouso-offshore':'Pouso Offshore','decolagem-offshore':'Decolagem Offshore'})[lastModule]||'Cat A Clear Area';
   if(resumeTitle) resumeTitle.textContent=lastLabel;
 
   const summaryParts=[];
@@ -86,7 +82,6 @@ function render(){
   if(ctx.rtoMeters!=null) chips.push(`RTO ${ctx.rtoMeters} m`);
   chips.slice(0,6).forEach(item=>resumeChips?.appendChild(chip(item)));
 
-  if(continueText) continueText.textContent=`Retomar ${lastLabel} com o último contexto salvo.`;
   setContinueEnabled(routeForModule(lastModule));
   if(resumeCard) resumeCard.hidden=false;
 }

@@ -207,10 +207,10 @@
       return;
     }
     if (state.platform === 'ios') {
-      installStatus.textContent = 'Instale pela Safari para abrir em tela cheia, com aparência de app e acesso rápido aos módulos.';
+      installStatus.textContent = 'Instale pela Safari para abrir em tela cheia, com aparência de app e acesso rápido aos fluxos.';
       return;
     }
-    installStatus.textContent = state.deferredPrompt ? 'Este navegador já permite instalar o app direto da tela inicial.' : 'Instale pelo navegador para abrir em tela cheia, com aparência de app e acesso rápido aos módulos.';
+    installStatus.textContent = state.deferredPrompt ? 'Este navegador já permite instalar o app direto da tela inicial.' : 'Instale pelo navegador para abrir em tela cheia, com aparência de app e acesso rápido aos fluxos.';
   }
 
   function basePrefix(){
@@ -231,8 +231,8 @@
     const items = [
       { key: 'home', icon: '🏠', label: 'Home', href: prefix + 'index.html' },
       { key: 'cata', icon: '📋', label: 'Cat A', href: prefix + 'cata/' },
-      { key: 'pouso-offshore', icon: '🛬', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' },
-      { key: 'decolagem-offshore', icon: '🚁', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' }
+      { key: 'decolagem-offshore', icon: '🚁', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' },
+      { key: 'pouso-offshore', icon: '🛬', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' }
     ];
     const path = pagePath();
     const currentKey = path.endsWith('/index.html') || path === '/' ? 'home'

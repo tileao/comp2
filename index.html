@@ -26,68 +26,64 @@
       </div>
     </header>
 
-    <section class="dashboard-grid" aria-label="Ferramentas principais">
-      <article class="widget large-widget flight-preview">
-        <span class="card-tag">Fluxo principal</span>
-        <h2>Cat A Clear Area</h2>
-        <div class="flight-data">
-          <div class="route">WAT ➔ RTO ➔ Decisão</div>
-          <div class="details">
-            <span>Contexto unificado</span>
-            <span>Entrada única</span>
-          </div>
-        </div>
-        <a class="btn-primary action-button" href="cata/">Calcular tudo e abrir fluxo</a>
-      </article>
-
-      <a class="widget small-widget" href="pouso-offshore/">
-        <div class="widget-icon">🛬</div>
-        <h3>Pouso Offshore</h3>
-      </a>
-
-      <a class="widget small-widget" href="decolagem-offshore/">
-        <div class="widget-icon">🚁</div>
-        <h3>Decolagem Offshore</h3>
-      </a>
-
-      <a class="widget small-widget" href="wat/?back=1&return=../index.html">
-        <div class="widget-icon">📊</div>
-        <h3>WAT</h3>
-      </a>
-
-      <a class="widget small-widget" href="rto/?back=1&return=../index.html">
-        <div class="widget-icon">🛫</div>
-        <h3>RTO</h3>
-      </a>
-
-      <a class="widget small-widget" href="adc/?back=1&return=../index.html">
-        <div class="widget-icon">📏</div>
-        <h3>ADC</h3>
-      </a>
-
-      <a class="widget small-widget" href="dropdown/?back=1&return=../index.html">
-        <div class="widget-icon">📉</div>
-        <h3>Dropdown</h3>
-      </a>
-    </section>
-
-    <section class="utility-panel">
-      <div class="utility-actions">
-        <a id="continueLink" class="quick-action disabled" href="cata/" aria-disabled="true">Continuar última sessão</a>
-        <button id="installGuideBtn" class="quick-action" type="button">Instalar app</button>
-        <button id="clearContextBtn" class="quick-action" type="button">Limpar contexto</button>
+    <section id="resumeCard" class="resume-card" hidden aria-label="Última sessão">
+      <div class="resume-head">
+        <span class="section-kicker">Última sessão</span>
+        <button id="clearContextBtn" class="text-action" type="button">Limpar</button>
       </div>
-      <p id="continueText" class="utility-note">Ainda não há uma última sessão salva.</p>
-      <p id="installStatusText" class="utility-note">Instale pela Safari para abrir em tela cheia no iPhone e iPad.</p>
-    </section>
-
-    <section id="resumeCard" class="resume-inline">
-      <div class="resume-inline-head">
-        <span class="resume-tag">Último contexto</span>
-        <strong id="resumeTitle">Sem contexto salvo</strong>
-      </div>
-      <p id="resumeSummary">Abra um fluxo ou módulo para começar.</p>
+      <strong id="resumeTitle" class="resume-title">Sem contexto salvo</strong>
+      <p id="resumeSummary" class="resume-summary">Abra um fluxo para começar.</p>
       <div class="resume-chips" id="resumeChips"></div>
+      <a id="continueLink" class="btn-primary disabled" href="cata/" aria-disabled="true">Continuar de onde parei</a>
+    </section>
+
+    <section class="flow-section" aria-labelledby="flowsHeading">
+      <h2 id="flowsHeading" class="section-kicker">Escolha o fluxo</h2>
+      <div class="flow-list">
+        <a class="flow-card flow-primary" href="cata/">
+          <span class="flow-icon" aria-hidden="true">📋</span>
+          <span class="flow-text">
+            <span class="flow-title">Cat A Clear Area</span>
+            <span class="flow-desc">WAT, RTO e decisão de decolagem em um só cálculo</span>
+          </span>
+          <span class="flow-chevron" aria-hidden="true">›</span>
+        </a>
+        <a class="flow-card" href="decolagem-offshore/">
+          <span class="flow-icon" aria-hidden="true">🚁</span>
+          <span class="flow-text">
+            <span class="flow-title">Decolagem Offshore</span>
+            <span class="flow-desc">WAT offshore e dropdown para decolar da plataforma</span>
+          </span>
+          <span class="flow-chevron" aria-hidden="true">›</span>
+        </a>
+        <a class="flow-card" href="pouso-offshore/">
+          <span class="flow-icon" aria-hidden="true">🛬</span>
+          <span class="flow-text">
+            <span class="flow-title">Pouso Offshore</span>
+            <span class="flow-desc">WAT offshore e dropdown para pousar na plataforma</span>
+          </span>
+          <span class="flow-chevron" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="flow-section" aria-labelledby="toolsHeading">
+      <h2 id="toolsHeading" class="section-kicker">Já tem o RTO?</h2>
+      <div class="flow-list">
+        <a class="flow-card" href="adc/?back=1&amp;return=../index.html">
+          <span class="flow-icon" aria-hidden="true">📏</span>
+          <span class="flow-text">
+            <span class="flow-title">ADC</span>
+            <span class="flow-desc">Informe o RTO já calculado e confira a ASDA na carta</span>
+          </span>
+          <span class="flow-chevron" aria-hidden="true">›</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="install-panel">
+      <button id="installGuideBtn" class="quick-action" type="button">Instalar app</button>
+      <p id="installStatusText" class="utility-note">Instale pela Safari para abrir em tela cheia no iPhone e iPad.</p>
     </section>
   </main>
 
@@ -100,13 +96,13 @@
       <span class="tab-icon">📋</span>
       <span class="tab-label">Cat A</span>
     </a>
-    <a href="wat/?back=1&return=../index.html" class="tab-item">
-      <span class="tab-icon">📊</span>
-      <span class="tab-label">WAT</span>
+    <a href="decolagem-offshore/" class="tab-item">
+      <span class="tab-icon">🚁</span>
+      <span class="tab-label">Decolagem Offshore</span>
     </a>
-    <a href="adc/?back=1&return=../index.html" class="tab-item">
-      <span class="tab-icon">⚙️</span>
-      <span class="tab-label">ADC</span>
+    <a href="pouso-offshore/" class="tab-item">
+      <span class="tab-icon">🛬</span>
+      <span class="tab-label">Pouso Offshore</span>
     </a>
   </nav>
 
