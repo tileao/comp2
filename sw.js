@@ -9,6 +9,7 @@ const PRECACHE = [
   "./adc/base_pack_template_v5.json",
   "./adc/index.html",
   "./adc/theme.css",
+  "./adc/theme.css",
   "./adc/sbcb_builtin_pack_v3.json",
   "./adc/sbcb_builtin_pack_v4.json",
   "./adc/sbcb_builtin_pack_v5.json",
