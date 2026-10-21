@@ -86,30 +86,6 @@ button{font:inherit}
 .flow-chevron{font-size:30px;line-height:1;color:var(--muted);font-weight:300}
 .flow-primary .flow-chevron{color:#7fe0d8}
 
-.resume-card{
-  padding:14px 16px;display:grid;gap:8px;
-  border:1px solid rgba(47,167,160,.35);border-radius:20px;
-  background:rgba(25,37,56,.94);box-shadow:var(--shadow);
-}
-.resume-card[hidden]{display:none}
-.resume-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.resume-title{font-size:18px}
-.resume-summary{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
-.text-action{background:none;border:none;padding:6px 2px;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer}
-.btn-primary{
-  margin-top:4px;
-  min-height:46px;
-  border-radius:14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:linear-gradient(180deg,#40beb6,#2fa7a0);
-  color:#042128;
-  font-weight:800;
-  border:none;
-}
-.btn-primary.disabled{opacity:.45;pointer-events:none}
-
 .install-panel{display:grid;gap:8px;padding:4px 2px}
 .install-panel .quick-action{justify-self:start}
 .quick-action{
@@ -125,9 +101,6 @@ button{font:inherit}
   font-weight:700;
 }
 .utility-note{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
-.resume-chips{display:flex;gap:8px;flex-wrap:wrap}
-.resume-chips:empty{display:none}
-.chip{min-height:30px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:12px;display:inline-flex;align-items:center}
 
 .app-tab-bar{
   position:fixed;
@@ -162,14 +135,4 @@ button{font:inherit}
   .flow-icon .aw-icon{width:34px;height:34px}
   .flow-title{font-size:20px}
   .flow-desc{font-size:15px}
-  .resume-card{
-    grid-template-columns:1fr auto;
-    grid-template-areas:"head head" "title action" "summary action" "chips action";
-    column-gap:20px;
-  }
-  .resume-head{grid-area:head}
-  .resume-title{grid-area:title}
-  .resume-summary{grid-area:summary}
-  .resume-chips{grid-area:chips}
-  .resume-card .btn-primary{grid-area:action;align-self:center;margin:0;padding:0 28px;min-width:240px}
 }
