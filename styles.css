@@ -46,6 +46,8 @@ button{font:inherit}
   background:rgba(25,37,56,.94);
   backdrop-filter:blur(12px);
 }
+.app-brand{display:flex;align-items:center;gap:14px;min-width:0}
+.app-icon{width:56px;height:56px;border-radius:14px;flex:0 0 auto;display:block;object-fit:cover;box-shadow:0 6px 16px rgba(0,0,0,.3)}
 .app-header h1{margin:0;font-size:28px;line-height:1.05}
 .subtitle{margin:4px 0 0;color:var(--muted);font-size:14px}
 .status-icon{font-size:16px;line-height:1}
@@ -123,6 +125,7 @@ button{font:inherit}
 @media (max-width:760px){
   .app-shell{padding-left:10px;padding-right:10px}
   .app-header h1{font-size:24px}
+  .app-icon{width:48px;height:48px;border-radius:12px}
 }
 
 /* iPad / tablet */
