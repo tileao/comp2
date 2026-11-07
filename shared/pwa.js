@@ -138,6 +138,16 @@
     bar.hidden = false;
   }
 
+  function notifyReload(){
+    const bar = ensureBar();
+    bar.querySelector('.pwa-toast-text').textContent = 'Nova versão instalada.';
+    const btn = bar.querySelector('.pwa-toast-action');
+    btn.hidden = false;
+    btn.textContent = 'Recarregar';
+    btn.onclick = () => window.location.reload();
+    bar.hidden = false;
+  }
+
   function installGuideHtml(){
     if (state.platform === 'ios') {
       return '<strong>Instalar no iPhone/iPad</strong><br>Abra no Safari, toque em <em>Compartilhar</em> e depois em <em>Adicionar à Tela de Início</em>.';
@@ -357,6 +367,13 @@
   });
 
   if (navigator.serviceWorker) {
-    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+    let controlled = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // Primeira instalação: a página já é a versão atual.
+      if (!controlled) { controlled = true; return; }
+      // Na Home não há dados digitados; nas outras telas o piloto escolhe quando recarregar.
+      if (basePrefix() === './') window.location.reload();
+      else notifyReload();
+    });
   }
 })();
