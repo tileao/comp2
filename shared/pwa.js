@@ -71,9 +71,8 @@
 
   function serviceWorkerConfig(){
     const path = pagePath();
-    if (path.includes('/wat/')) return { url: 'sw.js', scope: './' };
-    if (path.includes('/rto/')) return { url: 'sw.js', scope: './' };
-    if (path.includes('/cata/') || path.includes('/adc/')) return { url: '../sw.js', scope: '../' };
+    // Um único service worker para o app inteiro (ele já guarda os arquivos de WAT e RTO).
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/')) return { url: '../sw.js', scope: '../' };
     return { url: 'sw.js', scope: './' };
   }
 
@@ -94,6 +93,11 @@
     if (!('serviceWorker' in navigator)) return;
     const cfg = serviceWorkerConfig();
     try {
+      // Remove os service workers antigos de WAT e RTO, que apagavam o cache principal.
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs
+        .filter((r) => /\/(wat|rto)\/$/.test(new URL(r.scope).pathname))
+        .map((r) => r.unregister()));
       const reg = await navigator.serviceWorker.register(cfg.url, { scope: cfg.scope });
       if (reg.waiting) notifyUpdate(reg);
       // No app instalado (iOS) voltar do segundo plano não navega; procura versão nova ao reabrir.
@@ -371,6 +375,8 @@
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       // Primeira instalação: a página já é a versão atual.
       if (!controlled) { controlled = true; return; }
+      // Módulo embutido no Cat A: quem avisa é a página do Cat A.
+      if (new URLSearchParams(location.search).get('embed') === '1') return;
       // Na Home não há dados digitados; nas outras telas o piloto escolhe quando recarregar.
       if (basePrefix() === './') window.location.reload();
       else notifyReload();
