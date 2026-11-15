@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v45';
+const CACHE_NAME = 'aw139-companion-root-v46';
 const PRECACHE = [
   "./",
   "./README.md",

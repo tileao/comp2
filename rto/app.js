@@ -252,7 +252,8 @@ function setupAutoAdvance() {
   autoAdvanceRules.forEach((rule) => {
     rule.el.addEventListener('input', () => {
       sanitizeDigitsInput(rule.el, rule.maxDigits);
-      if (canAdvance(rule)) focusNext(rule.next);
+      // Só avança quando o piloto está digitando neste campo, não quando o valor é preenchido pelo app.
+      if (document.activeElement === rule.el && canAdvance(rule)) focusNext(rule.next);
     });
     rule.el.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
