@@ -20,7 +20,7 @@ Primeira integração de casca entre os módulos WAT, RTO/CTO e ADC.
 - ADC recebendo RTO/CTO automaticamente sem botão manual
 
 ## Combustível (`/combustivel`)
-Fluxo de cruzeiro AEO: consumo em lb e kg, best range, best endurance, recommended cruise, sugestão de subir ou descer e melhor altitude de ida e de volta com vento por altitude.
+Fluxo de cruzeiro AEO: consumo em lb e kg, best range, best endurance, recommended cruise e sugestão de subir ou descer.
 
 - **Fonte:** RFM 139G0290X002 Issue 2 Rev. 32 (03/03/2026), Seção 9, Figuras 9-1 a 9-55 (Cruise AEO, clean configuration, NR 100 %, 600 A). Dados em `combustivel/cruise-data.js`, extraídos por vetor do PDF (`tools/cruise/`).
 - **Interpolação:** como no exemplo da p. 9-3: primeiro OAT (mesma PA), depois PA; entre curvas de peso, linear no peso.

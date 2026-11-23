@@ -184,7 +184,6 @@
         <div class="viewer-tabs" role="tablist">
           <button class="viewer-tab active" data-tab="curva" type="button">Curva</button>
           <button class="viewer-tab" data-tab="altitudes" type="button">Altitudes</button>
-          <button class="viewer-tab" data-tab="rota" type="button">Rota</button>
         </div>
       </div>
 
@@ -210,32 +209,6 @@
         <p class="source-line" id="altNote"></p>
       </div>
 
-      <div class="tab-body" id="tab-rota" hidden>
-        <div class="form-grid form-grid-3 route-grid">
-          <label class="field">
-            <span>Rumo de ida (°)</span>
-            <input id="course" type="text" inputmode="numeric" placeholder="120" maxlength="3">
-          </label>
-          <label class="field">
-            <span>Distância (NM)</span>
-            <input id="dist" type="text" inputmode="numeric" placeholder="80" maxlength="3">
-          </label>
-          <label class="field">
-            <span>Velocidade</span>
-            <select id="speedMode">
-              <option value="rng" selected>Best range</option>
-              <option value="tas150">150 KTAS</option>
-            </select>
-          </label>
-        </div>
-        <div class="section-label">Vento por altitude (°/kt)</div>
-        <div class="wind-table" id="windTable"></div>
-        <p class="helper">Rumo e vento na mesma referência: o vento de previsão em altitude vem em graus verdadeiros. Altitude sem vento fica de fora.</p>
-        <div class="action-row route-actions">
-          <button id="routeBtn" class="run-btn" type="button">Melhor altitude ida e volta</button>
-        </div>
-        <div id="routeOut" class="route-out"></div>
-      </div>
     </section>
   </section>
 </main>

@@ -1,5 +1,5 @@
 /* Fluxo Combustível — AW139 Companion.
- * Consumo em kg e lb, best range, best endurance, sugestão de altitude e rota ida/volta com vento.
+ * Consumo em kg e lb, best range, best endurance e sugestão de subir ou descer.
  * Cálculo: engine.js sobre as cartas Cruise AEO do RFM (Seção 9).
  */
 (function () {
@@ -9,7 +9,6 @@
   const E = F.create(window.AW139_CRUISE);
   const KG_TO_LB = F.KG_TO_LB;
   const STORE = 'aw139_fuel_v1';
-  const ROUTE_ALTS = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000];
   const SCAN_ALTS = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
   const MIN_GAIN = 0.02; // abaixo de 2 % não vale sugerir mudança de altitude
   // RFM Seção 9, Tabela 9-1 (fator de correção × DTQ da carta)
@@ -24,8 +23,8 @@
     { id: 'eq8', cf: 0.5, label: 'Snow skids ou slump pads' },
   ];
   const FIELDS = ['alt', 'qnh', 'oat', 'weight', 'fuel', 'reserve', 'ias', 'hw'];
-  const SELECTS = ['unit', 'reserveMode', 'ibf', 'ceiling', 'speedMode'];
-  const state = { last: null, route: null, tab: 'curva' };
+  const SELECTS = ['unit', 'reserveMode', 'ibf', 'ceiling'];
+  const state = { last: null, tab: 'curva' };
 
   // ---------- entrada ----------
   function num(id) {
@@ -248,7 +247,6 @@
     $('resFoot').innerHTML = `Utilizável <b>${qty(usable, true)}</b> · reserva ${qty(s.reserveKg)} (${s.reserveTxt})${cfTxt}${ibfTxt}<br>RFM Seção 9, Fig. ${figs}. Sem efeito do sangramento de ar (p. 9-2).`;
     renderAltitudes();
     drawCurve();
-    if (state.route) computeRoute(true);
   }
 
   function renderSuggestion() {
@@ -276,7 +274,7 @@
       parts.push(`<strong>Best endurance:</strong> manter — ganho máximo de ${Math.max(dMin, 0)} min até ${ceiling} ft.`);
     }
     const wind = windTxt(s.inp.hw);
-    parts.push(`<span class="helper-inline">ISA ${signed(r0(s.scan.dIsa), ' °C')} constante, ${wind}. Não inclui o combustível de subida ou descida. Vento por altitude: aba Rota.</span>`);
+    parts.push(`<span class="helper-inline">ISA ${signed(r0(s.scan.dIsa), ' °C')} constante, ${wind}. Não inclui o combustível de subida ou descida.</span>`);
     $('altBand').innerHTML = parts.join('<br>');
   }
 
@@ -434,97 +432,12 @@
     $('curveSource').innerHTML = `Curva na PA ${r0(base.pa)} ft, OAT ${r0(base.oat)} °C, ${qty(base.gwKg)}. Reta tracejada: ${hw ? `do vento de ${hw > 0 ? 'proa' : 'cauda'} (${Math.abs(hw)} kt) ` : 'da origem '}ao best range. RFM Seção 9, Fig. ${figs}; interpolação em OAT e depois em PA (p. 9-3).`;
   }
 
-  // ---------- rota (ida e volta) ----------
-  function buildWindTable() {
-    let html = '<div class="wt-head">Alt</div><div class="wt-head">Direção (°)</div><div class="wt-head">Vel (kt)</div>';
-    for (const a of ROUTE_ALTS) {
-      html += `<div class="wt-alt">${a} ft</div>` +
-        `<input id="wd${a}" type="text" inputmode="numeric" maxlength="3" placeholder="—" aria-label="Direção do vento a ${a} ft">` +
-        `<input id="ws${a}" type="text" inputmode="numeric" maxlength="3" placeholder="—" aria-label="Velocidade do vento a ${a} ft">`;
-    }
-    $('windTable').innerHTML = html;
-  }
-
-  function computeRoute(silent) {
-    const out = $('routeOut');
-    const s = state.last;
-    if (!s) { if (!silent) out.innerHTML = '<p class="err-line">Calcule primeiro com os dados do topo.</p>'; return; }
-    const course = num('course'), dist = num('dist');
-    if (course == null || dist == null || dist <= 0) { if (!silent) out.innerHTML = '<p class="err-line">Informe o rumo de ida e a distância.</p>'; return; }
-    const mode = $('speedMode').value;
-    const { inp } = s;
-    const dIsa = s.scan.dIsa;
-    const back = (course + 180) % 360;
-    const rows = [];
-    for (const alt of ROUTE_ALTS) {
-      const dir = num('wd' + alt), spd = num('ws' + alt);
-      if (dir == null || spd == null) continue;
-      const pa = paOf(inp, alt);
-      const oat = F.isaTemp(pa) + dIsa;
-      const legs = {};
-      for (const [key, crs] of [['ida', course], ['volta', back]]) {
-        const wc = F.windComponents(dir, spd, crs);
-        const r = E.solve({ pa, oat, gwKg: inp.gwKg, hw: wc.hw, xw: wc.xw, cf: inp.cf, ibf: inp.ibf, tas: mode === 'tas150' ? 150 : null });
-        if (r.err) { legs[key] = { err: r.err }; continue; }
-        const p = mode === 'tas150' ? r.fix : r.rng;
-        if (!p || p.out || !(p.gs > 20)) { legs[key] = { err: 'sem solução' }; continue; }
-        const hrs = dist / p.gs;
-        legs[key] = { hw: wc.hw, p, hrs, fuel: p.ff * hrs };
-      }
-      rows.push({ alt, oat, dir, spd, legs });
-    }
-    state.route = { course, dist, mode };
-    save();
-    if (!rows.length) { out.innerHTML = '<p class="err-line">Preencha o vento de pelo menos uma altitude.</p>'; return; }
-    const pick = (key) => rows.filter((x) => x.legs[key] && !x.legs[key].err).reduce((a, b) => (!a || b.legs[key].fuel < a.legs[key].fuel ? b : a), null);
-    const bi = pick('ida'), bv = pick('volta');
-    const near = (key, best) => {
-      if (!best) return '';
-      const lim = best.legs[key].fuel * 1.01;
-      const alts = rows.filter((x) => x !== best && x.legs[key] && !x.legs[key].err && x.legs[key].fuel <= lim).map((x) => x.alt);
-      return alts.length ? `<br>Até +1 %: ${alts.join(', ')} ft` : '';
-    };
-    const card = (title, crs, row, key, cls) => {
-      if (!row) return `<div class="route-card ${cls}"><div class="rc-label">${title} · ${String(r0(crs)).padStart(3, '0')}°</div><div class="rc-main">Sem solução nas cartas</div></div>`;
-      const l = row.legs[key];
-      const comp = l.hw >= 0 ? `proa ${r0(l.hw)} kt` : `cauda ${r0(-l.hw)} kt`;
-      const spd = l.p.ias != null ? `${r0(l.p.ias)} KIAS` : `${r0(l.p.tas)} KTAS`;
-      return `<div class="route-card ${cls}"><div class="rc-label">${title} · ${String(r0(crs)).padStart(3, '0')}°</div>` +
-        `<div class="rc-alt">${row.alt} ft</div><div class="rc-main">${qty(l.fuel)} · ${hm(l.hrs)}</div>` +
-        `<div class="rc-sub">${spd} · TQ&nbsp;${r0(l.p.tq)}&nbsp;% · GS&nbsp;${r0(l.p.gs)} · ${comp}<br>${rate(l.p.ff)}${near(key, row)}</div></div>`;
-    };
-    let html = `<div class="route-cards">${card('Ida', course, bi, 'ida', '')}${card('Volta', back, bv, 'volta', 'back')}</div>`;
-    if (bi && bv) {
-      const tot = bi.legs.ida.fuel + bv.legs.volta.fuel;
-      const left = s.usableKg - tot;
-      html += `<div class="route-total${left < 0 ? ' bad' : ''}">Ida + volta: <b>${qty(tot, true)}</b> · ${hm(bi.legs.ida.hrs + bv.legs.volta.hrs)} de voo. ` +
-        (left >= 0 ? `Sobra ${qty(left)} acima da reserva.` : `Faltam ${qty(-left)} para manter a reserva.`) + '</div>';
-    }
-    html += '<div class="table-wrap"><table class="fuel-table"><thead><tr><th>Alt</th><th>Vento</th><th>Ida</th><th>Volta</th><th>Total</th></tr></thead><tbody>';
-    for (const row of rows) {
-      const cell = (key, best) => {
-        const l = row.legs[key];
-        if (!l || l.err) return '<td class="na">—</td>';
-        return `<td${best === row ? ' class="best-r"' : ''}>${r0(unit() === 'lb' ? l.fuel * KG_TO_LB : l.fuel)} · ${hm(l.hrs)}</td>`;
-      };
-      const tot = row.legs.ida && !row.legs.ida.err && row.legs.volta && !row.legs.volta.err ? row.legs.ida.fuel + row.legs.volta.fuel : null;
-      html += `<tr><td>${row.alt}</td><td>${String(r0(row.dir)).padStart(3, '0')}/${r0(row.spd)}</td>${cell('ida', bi)}${cell('volta', bv)}<td>${tot == null ? '—' : r0(unit() === 'lb' ? tot * KG_TO_LB : tot)}</td></tr>`;
-    }
-    html += `</tbody></table></div><p class="source-line">Combustível em ${unit()} e tempo de cada perna em ${mode === 'tas150' ? '150 KTAS' : 'best range com o vento da altitude'}. Peso atual nas duas pernas; não inclui subida, descida nem tempo na UM. OAT pela variação padrão (ISA ${signed(r0(dIsa), ' °C')}).</p>`;
-    out.innerHTML = html;
-  }
-
   // ---------- estado salvo ----------
   function save() {
     const data = {};
     for (const id of FIELDS) data[id] = $(id).value;
     for (const id of SELECTS) data[id] = $(id).value;
     data.eq = EQUIP.filter((e) => $(e.id).checked).map((e) => e.id);
-    data.course = $('course').value;
-    data.dist = $('dist').value;
-    data.wind = {};
-    for (const a of ROUTE_ALTS) data.wind[a] = [$('wd' + a).value, $('ws' + a).value];
-    data.hasRoute = !!state.route;
     try { localStorage.setItem(STORE, JSON.stringify(data)); } catch (_) {}
   }
 
@@ -535,28 +448,16 @@
     for (const id of SELECTS) if (data[id] != null) $(id).value = data[id];
     for (const id of FIELDS) if (data[id] != null) $(id).value = data[id];
     for (const e of EQUIP) $(e.id).checked = (data.eq || []).includes(e.id);
-    if (data.course != null) $('course').value = data.course;
-    if (data.dist != null) $('dist').value = data.dist;
-    for (const a of ROUTE_ALTS) {
-      const v = data.wind && data.wind[a];
-      if (v) { $('wd' + a).value = v[0] || ''; $('ws' + a).value = v[1] || ''; }
-    }
-    state.route = data.hasRoute ? {} : null;
     return true;
   }
 
   function clearAll() {
     try { localStorage.removeItem(STORE); } catch (_) {}
     for (const id of FIELDS) $(id).value = '';
-    $('course').value = '';
-    $('dist').value = '';
-    for (const a of ROUTE_ALTS) { $('wd' + a).value = ''; $('ws' + a).value = ''; }
     for (const e of EQUIP) $(e.id).checked = false;
     $('reserveMode').value = 'r30';
     $('ibf').value = '0';
     state.last = null;
-    state.route = null;
-    $('routeOut').innerHTML = '';
     $('resultCard').classList.add('pending');
     $('statusChip').textContent = 'Aguardando cálculo';
     $('statusChip').className = 'status-chip warn';
@@ -611,8 +512,8 @@
   function showTab(tab) {
     state.tab = tab;
     document.querySelectorAll('.viewer-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-    for (const t of ['curva', 'altitudes', 'rota']) $('tab-' + t).hidden = t !== tab;
-    $('vizTitle').textContent = tab === 'curva' ? 'Consumo × velocidade' : tab === 'altitudes' ? 'Comparação por altitude' : 'Rota ida e volta';
+    for (const t of ['curva', 'altitudes']) $('tab-' + t).hidden = t !== tab;
+    $('vizTitle').textContent = tab === 'curva' ? 'Consumo × velocidade' : 'Comparação por altitude';
     if (tab === 'curva') requestAnimationFrame(drawCurve);
   }
 
@@ -621,7 +522,6 @@
     $('eqList').innerHTML = EQUIP.map((e) => `<label class="eq-item"><input type="checkbox" id="${e.id}"><span>${e.label}</span><span class="cf">${e.cf.toFixed(1).replace('.', ',')}</span></label>`).join('');
     const sum = document.querySelector('#advBox summary');
     sum.insertAdjacentHTML('beforeend', '<span class="adv-badge" id="advBadge"></span>');
-    buildWindTable();
 
     let lastUnit = unit();
     $('unit').addEventListener('change', () => { convertUnits(lastUnit, unit()); lastUnit = unit(); syncUi(); if (state.last) calc(); });
@@ -634,7 +534,6 @@
       });
     }
     $('ceiling').addEventListener('change', () => { if (state.last) { renderSuggestion(); renderAltitudes(); save(); } });
-    $('speedMode').addEventListener('change', () => { if (state.route) computeRoute(true); });
     $('oatSign').addEventListener('click', () => toggleSign($('oat')));
     $('hwSign').addEventListener('click', () => toggleSign($('hw')));
     for (const id of FIELDS) {
@@ -649,12 +548,8 @@
         if (i < order.length - 1) $(order[i + 1]).focus(); else { $(id).blur(); calc(); }
       });
     });
-    document.querySelectorAll('#windTable input, #course, #dist').forEach((el) => {
-      el.addEventListener('input', () => sanitize(el, false));
-    });
     $('runBtn').addEventListener('click', calc);
     $('resetBtn').addEventListener('click', clearAll);
-    $('routeBtn').addEventListener('click', () => computeRoute(false));
     document.querySelectorAll('.viewer-tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
     let rt = null;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(drawCurve, 120); });
