@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111b26">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <title>AW139 Companion — Combustível</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="../shared/pwa.css">
+  <link rel="stylesheet" href="../shared/module-layout.css">
+</head>
+<body>
+<main class="cockpit-shell">
+  <header class="topbar slim-topbar">
+    <div class="topbar-left">
+      <a class="nav-btn" href="../index.html" aria-label="Home">⥢</a>
+      <div class="product-tag no-sep">
+        <div class="product-icon"><img src="../assets/icon-192.png" alt=""></div>
+        <div>
+          <div class="product-line">AW139 Companion</div>
+          <div class="product-sub">Combustível</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="workspace">
+    <aside class="sidebar">
+      <section class="panel entry-panel">
+        <div class="panel-title-row">
+          <div>
+            <div class="panel-kicker">Cruzeiro AEO</div>
+            <h1>Consumo e autonomia</h1>
+          </div>
+        </div>
+        <form onsubmit="return false" autocomplete="off">
+          <div class="section-label">Condições</div>
+          <div class="form-grid form-grid-2">
+            <label class="field">
+              <span>Altitude (ft)</span>
+              <input id="alt" type="text" inputmode="numeric" enterkeyhint="next" placeholder="3000" maxlength="5">
+            </label>
+            <label class="field">
+              <span>QNH (hPa)</span>
+              <input id="qnh" type="text" inputmode="numeric" enterkeyhint="next" placeholder="1013" maxlength="4">
+            </label>
+          </div>
+          <div class="form-grid form-grid-2">
+            <label class="field">
+              <span>OAT (°C)</span>
+              <div class="input-with-toggle">
+                <button id="oatSign" type="button" class="sign-toggle" aria-label="Alternar sinal da temperatura">−</button>
+                <input id="oat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="20" maxlength="3">
+              </div>
+            </label>
+            <label class="field">
+              <span>Unidade</span>
+              <select id="unit">
+                <option value="lb" selected>lb</option>
+                <option value="kg">kg</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-grid form-grid-2">
+            <label class="field">
+              <span id="weightLabel">Peso atual (lb)</span>
+              <input id="weight" type="text" inputmode="numeric" enterkeyhint="next" placeholder="13500" maxlength="5">
+            </label>
+            <label class="field">
+              <span id="fuelLabel">Combustível (lb)</span>
+              <input id="fuel" type="text" inputmode="numeric" enterkeyhint="next" placeholder="2400" maxlength="5">
+            </label>
+          </div>
+          <div class="form-grid form-grid-2">
+            <label class="field">
+              <span>Reserva final</span>
+              <select id="reserveMode">
+                <option value="r30" selected>30 min a 150 KTAS</option>
+                <option value="manual">Outro valor</option>
+                <option value="none">Nenhuma</option>
+              </select>
+            </label>
+            <label class="field" id="reserveField" hidden>
+              <span id="reserveLabel">Reserva (lb)</span>
+              <input id="reserve" type="text" inputmode="numeric" enterkeyhint="next" placeholder="493" maxlength="4">
+            </label>
+          </div>
+
+          <div class="section-label">Agora (opcional)</div>
+          <div class="form-grid form-grid-2">
+            <label class="field">
+              <span>IAS atual (kt)</span>
+              <input id="ias" type="text" inputmode="numeric" enterkeyhint="next" placeholder="140" maxlength="3">
+            </label>
+            <label class="field">
+              <span>Vento de proa (kt)</span>
+              <div class="input-with-toggle">
+                <button id="hwSign" type="button" class="sign-toggle" aria-label="Vento de cauda (negativo)">−</button>
+                <input id="hw" type="text" inputmode="numeric" enterkeyhint="done" placeholder="0" maxlength="3">
+              </div>
+            </label>
+          </div>
+          <p class="helper">Vento de proa = TAS − GS. Use − para vento de cauda.</p>
+
+          <details class="adv" id="advBox">
+            <summary>Configuração e equipamento externo</summary>
+            <label class="field adv-field">
+              <span>Entrada de ar</span>
+              <select id="ibf">
+                <option value="0" selected>Padrão</option>
+                <option value="1">IBF instalado (+3,5 % de consumo)</option>
+              </select>
+            </label>
+            <div class="eq-list" id="eqList"></div>
+            <p class="helper">RFM Seção 9, Tabela 9-1 (fator CF × DTQ) e Supl. 86 (IBF). Sem equipamento marcado: configuração limpa.</p>
+          </details>
+
+          <div class="calc-band" id="calcBand">
+            <div class="calc-item">
+              <div class="calc-label">PA calculada</div>
+              <div class="calc-value" id="calcPa">—</div>
+            </div>
+            <div class="calc-item">
+              <div class="calc-label">ISA</div>
+              <div class="calc-value" id="calcIsa">—</div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button id="runBtn" class="run-btn" type="button">Calcular</button>
+            <button id="resetBtn" class="ghost-btn secondary-action" type="button">Limpar</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="resultCard" class="panel result-panel pending">
+        <div class="panel-title-row compact">
+          <div>
+            <div class="panel-kicker">Resultado</div>
+            <h2>Regimes</h2>
+          </div>
+          <span id="statusChip" class="status-chip warn">Aguardando cálculo</span>
+        </div>
+        <div class="result-grid fuel-grid">
+          <div class="result-box regime" id="boxRng">
+            <div class="result-label">Best range</div>
+            <div class="result-value" id="valRng">—</div>
+            <div class="result-main" id="mainRng">Alcance</div>
+            <div class="result-sub" id="subRng"></div>
+          </div>
+          <div class="result-box regime" id="boxEnd">
+            <div class="result-label">Best endurance</div>
+            <div class="result-value" id="valEnd">—</div>
+            <div class="result-main" id="mainEnd">Autonomia</div>
+            <div class="result-sub" id="subEnd"></div>
+          </div>
+          <div class="result-box regime" id="boxRec">
+            <div class="result-label">Recommended cruise</div>
+            <div class="result-value" id="valRec">—</div>
+            <div class="result-main" id="mainRec"></div>
+            <div class="result-sub" id="subRec"></div>
+          </div>
+          <div class="result-box regime" id="boxCur">
+            <div class="result-label">Agora</div>
+            <div class="result-value" id="valCur">—</div>
+            <div class="result-main" id="mainCur">Informe a IAS atual</div>
+            <div class="result-sub" id="subCur"></div>
+          </div>
+        </div>
+        <div class="result-band" id="altBand">—</div>
+        <div class="result-foot" id="resFoot"></div>
+      </section>
+    </aside>
+
+    <section class="viewer-pane">
+      <div class="viewer-header">
+        <div>
+          <div class="panel-kicker">Visualização</div>
+          <div class="viewer-title" id="vizTitle">Consumo × velocidade</div>
+        </div>
+        <div class="viewer-tabs" role="tablist">
+          <button class="viewer-tab active" data-tab="curva" type="button">Curva</button>
+          <button class="viewer-tab" data-tab="altitudes" type="button">Altitudes</button>
+          <button class="viewer-tab" data-tab="rota" type="button">Rota</button>
+        </div>
+      </div>
+
+      <div class="tab-body" id="tab-curva">
+        <div class="curve-wrap"><canvas id="curveCanvas" class="curve-canvas" aria-label="Consumo em função da TAS"></canvas></div>
+        <div class="viz-legend" id="curveLegend"></div>
+        <p class="source-line" id="curveSource">Preencha os dados e toque em Calcular.</p>
+      </div>
+
+      <div class="tab-body" id="tab-altitudes" hidden>
+        <div class="tab-tools">
+          <label class="field inline-field">
+            <span>Teto para sugestão</span>
+            <select id="ceiling">
+              <option value="4000">4000 ft</option>
+              <option value="6000">6000 ft</option>
+              <option value="8000" selected>8000 ft</option>
+              <option value="10000">10000 ft</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap"><table class="fuel-table" id="altTable"></table></div>
+        <p class="source-line" id="altNote"></p>
+      </div>
+
+      <div class="tab-body" id="tab-rota" hidden>
+        <div class="form-grid form-grid-3 route-grid">
+          <label class="field">
+            <span>Rumo de ida (°)</span>
+            <input id="course" type="text" inputmode="numeric" placeholder="120" maxlength="3">
+          </label>
+          <label class="field">
+            <span>Distância (NM)</span>
+            <input id="dist" type="text" inputmode="numeric" placeholder="80" maxlength="3">
+          </label>
+          <label class="field">
+            <span>Velocidade</span>
+            <select id="speedMode">
+              <option value="rng" selected>Best range</option>
+              <option value="tas150">150 KTAS</option>
+            </select>
+          </label>
+        </div>
+        <div class="section-label">Vento por altitude (°/kt)</div>
+        <div class="wind-table" id="windTable"></div>
+        <p class="helper">Rumo e vento na mesma referência: o vento de previsão em altitude vem em graus verdadeiros. Altitude sem vento fica de fora.</p>
+        <div class="action-row route-actions">
+          <button id="routeBtn" class="run-btn" type="button">Melhor altitude ida e volta</button>
+        </div>
+        <div id="routeOut" class="route-out"></div>
+      </div>
+    </section>
+  </section>
+</main>
+<script src="cruise-data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script src="../shared/pwa.js"></script>
+</body>
+</html>

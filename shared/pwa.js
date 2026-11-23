@@ -84,7 +84,7 @@
   function serviceWorkerConfig(){
     const path = pagePath();
     // Um único service worker para o app inteiro (ele já guarda os arquivos de WAT e RTO).
-    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/')) return { url: '../sw.js', scope: '../' };
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/combustivel/')) return { url: '../sw.js', scope: '../' };
     return { url: 'sw.js', scope: './' };
   }
 
@@ -186,7 +186,7 @@
 
   function launchIconPath(){
     const path = pagePath();
-    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/')) return '../assets/icon-192.png';
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/combustivel/')) return '../assets/icon-192.png';
     return 'assets/icon-192.png';
   }
 
@@ -233,7 +233,7 @@
     const installStatus = document.getElementById('installStatusText');
     if (!installStatus) return;
     if (state.installed) {
-      installStatus.textContent = state.online ? 'App instalado e pronto para abrir em tela cheia.' : 'App instalado em modo offline. Home, Cat A, WAT, RTO e ADC ficam disponíveis após a sincronização inicial online desta versão.';
+      installStatus.textContent = state.online ? 'App instalado e pronto para abrir em tela cheia.' : 'App instalado em modo offline. Home, Cat A, WAT, RTO, ADC e Combustível ficam disponíveis após a sincronização inicial online desta versão.';
       return;
     }
     if (state.platform === 'ios') {
@@ -245,7 +245,7 @@
 
   function basePrefix(){
     const path = pagePath();
-    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/dropdown/') || path.includes('/pouso-offshore/') || path.includes('/decolagem-offshore/')) return '../';
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/dropdown/') || path.includes('/pouso-offshore/') || path.includes('/decolagem-offshore/') || path.includes('/combustivel/')) return '../';
     return './';
   }
 
@@ -254,7 +254,7 @@
     if (!document.getElementById('aw139GlobalTabBarStyles')) {
       const style = document.createElement('style');
       style.id = 'aw139GlobalTabBarStyles';
-      style.textContent = '.app-tab-bar{position:fixed;left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom));z-index:9998;background:rgba(15,23,42,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:8px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;box-shadow:0 18px 40px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.tab-item{display:grid;justify-items:center;gap:2px;padding:6px;border-radius:12px;color:#bfd1e3;text-decoration:none}.tab-item.active{background:rgba(47,167,160,.22);color:#e9fbfa}.tab-icon{font-size:18px;line-height:1;display:grid;place-items:center}.tab-icon .aw-icon{width:22px;height:22px}.tab-label{font-size:11px;font-weight:700;text-align:center}body{padding-bottom:max(92px, calc(80px + env(safe-area-inset-bottom)))}@media (min-width:768px){.app-tab-bar{left:50%;right:auto;transform:translateX(-50%);width:min(760px, calc(100% - 24px));padding:6px}.tab-item{grid-auto-flow:column;align-items:center;justify-content:center;gap:8px;padding:9px 10px}.tab-label{font-size:13px;white-space:nowrap}.tab-icon .aw-icon{width:20px;height:20px}body{padding-bottom:max(80px, calc(68px + env(safe-area-inset-bottom)))}}';
+      style.textContent = '.app-tab-bar{position:fixed;left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom));z-index:9998;background:rgba(15,23,42,.94);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:8px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;box-shadow:0 18px 40px rgba(0,0,0,.28);backdrop-filter:blur(12px)}.tab-item{display:grid;justify-items:center;gap:2px;padding:6px;border-radius:12px;color:#bfd1e3;text-decoration:none}.tab-item.active{background:rgba(47,167,160,.22);color:#e9fbfa}.tab-icon{font-size:18px;line-height:1;display:grid;place-items:center}.tab-icon .aw-icon{width:22px;height:22px}.tab-label{font-size:11px;font-weight:700;text-align:center}body{padding-bottom:max(92px, calc(80px + env(safe-area-inset-bottom)))}@media (min-width:768px){.app-tab-bar{left:50%;right:auto;transform:translateX(-50%);width:min(760px, calc(100% - 24px));padding:6px}.tab-item{grid-auto-flow:column;align-items:center;justify-content:center;gap:8px;padding:9px 10px}.tab-label{font-size:13px;white-space:nowrap}.tab-icon .aw-icon{width:20px;height:20px}body{padding-bottom:max(80px, calc(68px + env(safe-area-inset-bottom)))}}';
       document.head.appendChild(style);
     }
     const prefix = basePrefix();
@@ -262,13 +262,15 @@
       { key: 'home', icon: 'home', label: 'Home', href: prefix + 'index.html' },
       { key: 'cata', icon: 'cata', label: 'Cat A', href: prefix + 'cata/' },
       { key: 'decolagem-offshore', icon: 'takeoff', label: 'Decolagem Offshore', href: prefix + 'decolagem-offshore/' },
-      { key: 'pouso-offshore', icon: 'landing', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' }
+      { key: 'pouso-offshore', icon: 'landing', label: 'Pouso Offshore', href: prefix + 'pouso-offshore/' },
+      { key: 'combustivel', icon: 'fuel', label: 'Combustível', href: prefix + 'combustivel/' }
     ];
     const path = pagePath();
     const currentKey = path.endsWith('/index.html') || path === '/' ? 'home'
       : path.includes('/cata/') ? 'cata'
       : path.includes('/pouso-offshore/') ? 'pouso-offshore'
       : path.includes('/decolagem-offshore/') ? 'decolagem-offshore'
+      : path.includes('/combustivel/') ? 'combustivel'
       : '';
     let nav = document.querySelector('.app-tab-bar');
     if (!nav) {
