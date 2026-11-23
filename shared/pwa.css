@@ -1,3 +1,8 @@
+/* Fundo escuro fora do conteúdo: no iPhone a faixa da barra de gestos, o elástico da rolagem
+   e o espaço do teclado usam a cor de fundo do html/body (sem o degradê) e ficavam brancos. */
+html{background-color:#111827;}
+body{background-color:#111827;}
+
 
 :root{
   --pwa-safe-top: env(safe-area-inset-top, 0px);
