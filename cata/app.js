@@ -2494,6 +2494,8 @@ function setupAutoAdvance() {
     if (!rule.el) return;
     if (rule.el.tagName === 'SELECT') {
       rule.el.addEventListener('change', () => {
+        // Só avança quando o piloto mudou este campo, não quando o valor é preenchido pelo app.
+        if (document.activeElement !== rule.el) return;
         const nextIsSelect = rule.next?.tagName === 'SELECT';
         const openNextPicker = nextIsSelect && !isIPadLikeDevice();
         focusNext(rule.next, openNextPicker ? { delay: 120, openPicker: true } : { delay: 80 });
@@ -2507,7 +2509,7 @@ function setupAutoAdvance() {
       const effectiveMin = rule.el === els.weight ? (weightUnit === 'lbs' ? 5 : 4) : rule.minDigits;
       sanitizeDigitsInput(rule.el, effectiveMax);
       const digits = digitsOnlyLength(rule.el);
-      if (rule.el === els.oat ? digits === effectiveMin : digits >= effectiveMin) {
+      if (document.activeElement === rule.el && (rule.el === els.oat ? digits === effectiveMin : digits >= effectiveMin)) {
         focusNext(rule.next);
       }
     });
@@ -2669,7 +2671,24 @@ function bindEvents() {
   window.addEventListener('resize', () => { if (fullscreenState.active) fitFullscreenCanvas(); });
 }
 
+// Ao abrir, a página fica no topo até o piloto tocar na tela: preencher os módulos
+// embutidos (ADC, WAT, RTO) não pode rolar a página até eles.
+function keepTopUntilUserInteracts() {
+  let touched = false;
+  ['pointerdown', 'touchstart', 'wheel', 'keydown'].forEach((type) =>
+    window.addEventListener(type, () => { touched = true; }, { once: true, passive: true }));
+  return () => {
+    if (touched) return;
+    if (document.activeElement?.tagName === 'IFRAME') document.activeElement.blur();
+    // Nesta página quem rola pode ser o body (overflow), não a janela.
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
+  };
+}
+
 window.addEventListener('load', async () => {
+  const backToTop = keepTopUntilUserInteracts();
   try { const saved = localStorage.getItem('aw139_weight_unit'); if (saved === 'lbs') setWeightUnit('lbs', false); } catch { /* quota */ }
   bindEvents();
   setupAutoAdvance();
@@ -2692,4 +2711,6 @@ window.addEventListener('load', async () => {
   } catch (error) {
     console.error('Falha ao inicializar integração', error);
   }
+  backToTop();
+  window.setTimeout(backToTop, 800);
 });

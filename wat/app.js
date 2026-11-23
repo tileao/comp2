@@ -441,7 +441,7 @@ function canAdvance(rule) {
   return digits.length >= rule.minDigits;
 }
 function focusNext(target) { if (!target) return; if (target === runBtn) { runBtn.focus(); return; } target.focus(); target.select?.(); }
-function setupAutoAdvance() { autoAdvanceRules.forEach((rule) => { rule.el.addEventListener('input', () => { if (rule.el === oatEl) sanitizeDigitsInput(oatEl, 2); if (rule.el === paEl) sanitizeDigitsInput(paEl, 5); if (rule.el === weightEl) sanitizeDigitsInput(weightEl, isLbUnit() ? 5 : 4); if (rule.el === headwindEl) sanitizeDigitsInput(headwindEl, 2); if (canAdvance(rule)) focusNext(rule.next); }); rule.el.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); focusNext(rule.next); } }); }); }
+function setupAutoAdvance() { autoAdvanceRules.forEach((rule) => { rule.el.addEventListener('input', () => { if (rule.el === oatEl) sanitizeDigitsInput(oatEl, 2); if (rule.el === paEl) sanitizeDigitsInput(paEl, 5); if (rule.el === weightEl) sanitizeDigitsInput(weightEl, isLbUnit() ? 5 : 4); if (rule.el === headwindEl) sanitizeDigitsInput(headwindEl, 2); if (document.activeElement === rule.el && canAdvance(rule)) focusNext(rule.next); }); rule.el.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); focusNext(rule.next); } }); }); }
 paNegativeBtn?.addEventListener('click', () => { toggleSignedInput(paEl, 5); });
 oatNegativeBtn?.addEventListener('click', () => { toggleSignedInput(oatEl, 2); });
 
