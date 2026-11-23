@@ -19,6 +19,18 @@
     return 'other';
   }
 
+  // iPhone/iPad: o Safari dá zoom sozinho ao tocar em campos com letra menor que 16 px.
+  // Com maximum-scale=1 esse zoom some; no iOS o zoom de pinça continua funcionando.
+  // (No Android isso bloquearia a pinça, por isso só no iOS.)
+  function preventFocusZoomOnIOS(){
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!isIOS) return;
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta || /maximum-scale/.test(meta.content)) return;
+    meta.content = meta.content + ', maximum-scale=1';
+  }
+  preventFocusZoomOnIOS();
+
   function pagePath(){
     return location.pathname.replace(/\\+/g, '/');
   }
