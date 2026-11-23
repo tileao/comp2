@@ -283,7 +283,10 @@
         if (p.tag) tags.push({ tag: p.tag, oat: it.r.oat, pa: it.r.pa, w: it.w });
       }
       const ex = tags.filter((x) => x.tag === 'extrap');
-      const tag = tags.length ? tags.filter((x) => x.tag !== 'extrap').map((x) => x.tag)[0] || null : null;
+      // Limite (VNE/MCP) só vale para o resultado se pesar pelo menos metade na interpolação.
+      const wOf = (name) => tags.filter((x) => x.tag === name).reduce((a, x) => a + x.w, 0);
+      const lims = [...new Set(tags.map((x) => x.tag).filter((t) => t !== 'extrap'))];
+      const tag = lims.find((t) => wOf(t) >= 0.5 - 1e-9) || null;
       return { tas, tq, ff, ias: iasOk ? ias : null, tag, extrap: ex.length ? ex : null };
     }
 

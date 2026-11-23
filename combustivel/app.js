@@ -77,6 +77,10 @@
   function signed(v, unitTxt) { return `${v >= 0 ? '+' : '−'}${Math.abs(v)}${unitTxt || ''}`; }
   function speedTxt(p) { return p.ias != null ? `${r0(p.ias)}<small>KIAS</small>` : `${r0(p.tas)}<small>KTAS</small>`; }
   function limTxt(tag) { return tag ? `<span class="flag">Limitado pela ${tag}</span>` : ''; }
+  function windTxt(hw) {
+    if (!hw) return 'sem vento';
+    return `vento de ${hw > 0 ? 'proa' : 'cauda'} de ${Math.abs(hw)} kt em todas as altitudes`;
+  }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
 
   // ---------- cálculo ----------
@@ -265,7 +269,7 @@
     } else {
       parts.push(`<strong>Best endurance:</strong> manter — ganho máximo de ${Math.max(dMin, 0)} min até ${ceiling} ft.`);
     }
-    const wind = s.inp.hw ? `vento de proa de ${s.inp.hw} kt em todas as altitudes` : 'sem vento';
+    const wind = windTxt(s.inp.hw);
     parts.push(`<span class="helper-inline">ISA ${signed(r0(s.scan.dIsa), ' °C')} constante, ${wind}. Não inclui o combustível de subida ou descida. Vento por altitude: aba Rota.</span>`);
     $('altBand').innerHTML = parts.join('<br>');
   }
@@ -296,7 +300,7 @@
         `<td${isBR ? ' class="best-r"' : ''}>${r0(nm)} NM</td><td${isBE ? ' class="best-e"' : ''}>${hm(hE)}</td></tr>`;
     }
     t.innerHTML = html + '</tbody>';
-    const wind = s.inp.hw ? `vento de proa de ${s.inp.hw} kt em todas as altitudes` : 'sem vento';
+    const wind = windTxt(s.inp.hw);
     $('altNote').innerHTML = `OAT pela variação padrão (ISA ${signed(r0(s.scan.dIsa), ' °C')} constante), ${wind}, peso atual. Alcance e autonomia até a reserva. Destaque: melhor de 1000 ft ao teto escolhido. Confira a altitude máxima operacional (RFM Seção 1, Fig. 1-6) e o espaço aéreo.`;
   }
 
@@ -421,7 +425,7 @@
     }
     legend.innerHTML = items.join('');
     const figs = r.charts.map((c) => c.fig).join(', ');
-    $('curveSource').innerHTML = `Curva na PA ${r0(base.pa)} ft, OAT ${r0(base.oat)} °C, ${qty(base.gwKg)}. Reta tracejada: ${hw ? `do vento de proa (${hw} kt) ` : 'da origem '}ao best range. RFM Seção 9, Fig. ${figs}; interpolação em OAT e depois em PA (p. 9-3).`;
+    $('curveSource').innerHTML = `Curva na PA ${r0(base.pa)} ft, OAT ${r0(base.oat)} °C, ${qty(base.gwKg)}. Reta tracejada: ${hw ? `do vento de ${hw > 0 ? 'proa' : 'cauda'} (${Math.abs(hw)} kt) ` : 'da origem '}ao best range. RFM Seção 9, Fig. ${figs}; interpolação em OAT e depois em PA (p. 9-3).`;
   }
 
   // ---------- rota (ida e volta) ----------
