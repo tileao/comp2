@@ -68,18 +68,20 @@ for (const [gw, t] of Object.entries(qrh)) {
         const oat = col === 'ISA' ? isa(+pa) : (i >= 3 ? isa(+pa) + col : col);
         const x = E.solve({ pa: +pa, oat, gwKg: +gw, ias: +ias });
         if (x.err || !x.cur || x.cur.out) return;
-        diffs.push({ gw, pa, ias, col, v, got: x.cur.ff, d: x.cur.ff - v, ex: !!x.cur.extrap });
+        diffs.push({ gw, pa, ias, col, v, got: x.cur.ff, d: x.cur.ff - v, ex: !!x.cur.extrap, over: !!x.cur.tag });
       });
     }
   }
 }
-const d64 = diffs.filter((d) => d.gw === '6400' && !d.ex).map((d) => Math.abs(d.d));
-const d68 = diffs.filter((d) => d.gw === '6800' && !d.ex).map((d) => Math.abs(d.d));
-const dex = diffs.filter((d) => d.ex).map((d) => Math.abs(d.d));
-console.log(`QRH com prolongamento além da MCP numa das cartas: ${dex.length} células, erro máx ${Math.max(...dex).toFixed(1)} kg/h`);
-for (const d of diffs.filter((x) => x.ex)) console.log('   prolongado', d.gw, d.pa, d.ias, d.col, 'QRH', d.v, 'calc', d.got.toFixed(1));
-truthy('QRH prolongado: erro máx ≤ 9 kg/h', Math.max(...dex) <= 9);
 const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+const d64 = diffs.filter((d) => d.gw === '6400' && !d.ex && !d.over).map((d) => Math.abs(d.d));
+const d68 = diffs.filter((d) => d.gw === '6800' && !d.ex && !d.over).map((d) => Math.abs(d.d));
+const dex = diffs.filter((d) => d.ex && !d.over).map((d) => Math.abs(d.d));
+console.log(`QRH com a curva de uma carta prolongada: ${dex.length} células, erro médio ${mean(dex).toFixed(1)}, máx ${Math.max(...dex).toFixed(1)} kg/h`);
+for (const d of diffs.filter((x) => x.ex && !x.over)) console.log('   prolongado', d.gw, d.pa, d.ias, d.col, 'QRH', d.v, 'calc', d.got.toFixed(1));
+for (const d of diffs.filter((x) => x.over)) console.log('   acima da MCP', d.gw, d.pa, d.ias, d.col, 'QRH', d.v, 'calc', d.got.toFixed(1));
+truthy('QRH prolongado: erro médio ≤ 4 kg/h', mean(dex) <= 4);
+truthy('QRH prolongado: erro máx ≤ 9 kg/h', Math.max(...dex) <= 9);
 console.log(`QRH 6400 kg: ${d64.length} células, erro médio ${mean(d64).toFixed(1)} kg/h, máx ${Math.max(...d64).toFixed(1)}`);
 console.log(`QRH 6800 kg: ${d68.length} células, erro médio ${mean(d68).toFixed(1)} kg/h, máx ${Math.max(...d68).toFixed(1)}`);
 truthy('QRH 6400 erro médio ≤ 1,5 kg/h', mean(d64) <= 1.5);
@@ -131,6 +133,16 @@ near('IBF mesma TAS', b.rng.tas - a.rng.tas, 0, 0.05);
 const c0 = E.solve({ pa: 0, oat: 20, gwKg: 5600, tas: 161 });
 const c1 = E.solve({ pa: 0, oat: 20, gwKg: 5600, tas: 161, cf: 0.5 });
 near('DTQ p9-5: +11,5 % TQ a 161 KTAS', c1.fix.tq - c0.fix.tq, 11.5, 0.6);
+
+// 10. Dia quente (ISA+19, ~5000 ft): IAS de cruzeiro tem de sair, mesmo que a carta de 40 °C pare antes.
+for (const ias of [130, 140, 145]) {
+  const h = E.solve({ pa: 5000, oat: isa(5000) + 19, gwKg: 6500, ias });
+  truthy(`ISA+19 5000 ft 6500 kg ${ias} KIAS calculado`, h.cur && !h.cur.out);
+  if (h.cur && !h.cur.out) truthy(`ISA+19 ${ias} KIAS abaixo da MCP real`, h.cur.tag == null);
+}
+// reserva a 150 KTAS não deve parar na MCP da carta quente
+const rr = E.solve({ pa: 5000, oat: isa(5000) + 19, gwKg: 6500, tas: 150 });
+near('150 KTAS em ISA+19 sem limitar', rr.fix.tas, 150, 0.01);
 
 console.log(`\n${passes} ok, ${fails} falhas`);
 process.exit(fails ? 1 : 0);

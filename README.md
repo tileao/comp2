@@ -25,6 +25,7 @@ Fluxo de cruzeiro AEO: consumo em lb e kg, best range, best endurance, recommend
 - **Fonte:** RFM 139G0290X002 Issue 2 Rev. 32 (03/03/2026), Seção 9, Figuras 9-1 a 9-55 (Cruise AEO, clean configuration, NR 100 %, 600 A). Dados em `combustivel/cruise-data.js`, extraídos por vetor do PDF (`tools/cruise/`).
 - **Interpolação:** como no exemplo da p. 9-3: primeiro OAT (mesma PA), depois PA; entre curvas de peso, linear no peso.
 - **Best range, best endurance e recommended:** linhas desenhadas na carta (Max Range Cruise, Max Endurance, Recommended Cruise). Com vento, a velocidade de best range é deslocada pelo deslocamento do ótimo de GS/consumo calculado na curva (raciocínio sobre a carta, não é dado do RFM).
+- **IAS atual e TAS fixa:** quando a velocidade passa da ponta da curva numa carta vizinha (a carta quente para na MCP dela), a curva dessa carta é prolongada por uma parábola dos últimos 25 kt (testado nas próprias cartas: erro médio de 0,2 % TQ em 10 kt, 0,8 % em 20 kt, 1,7 % em 30 kt). O limite que vale é a MCP interpolada na condição real; acima dela o app mostra a IAS máxima.
 - **Correções:** equipamento externo pela Tabela 9-1 (CF × DTQ); IBF +3,5 % no consumo (Supl. 86).
 - **Reserva:** padrão de 30 min no consumo a 150 KTAS (OM-A 11.1.7; OM-C 4.1.5). Pode ser outro valor ou nenhuma.
 - **Limites:** só 4.400 a 6.800 kg (não há carta de cruzeiro para 7.000 kg); OAT e PA dentro das cartas; não inclui subida, descida nem sangramento de ar. O fuel flow indicado do motor não serve para planejamento (RFM Seção 1).

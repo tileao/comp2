@@ -207,32 +207,38 @@
     // Best range
     box('Rng', r.rng);
     const hR = usable / r.rng.ff;
-    $('mainRng').textContent = `${r0(hR * r.rng.gs)} NM até a reserva`;
-    $('subRng').innerHTML = `${rate(r.rng.ff)}<br>TAS&nbsp;${r0(r.rng.tas)} · GS&nbsp;${r0(r.rng.gs)} · TQ&nbsp;${r0(r.rng.tq)}&nbsp;% · ${hm(hR)}${limTxt(r.rng.tag)}`;
+    $('mainRng').textContent = `${r0(hR * r.rng.gs)} NM · ${hm(hR)} até a reserva`;
+    $('subRng').innerHTML = `${rate(r.rng.ff)}<br>TAS&nbsp;${r0(r.rng.tas)} · GS&nbsp;${r0(r.rng.gs)} · TQ&nbsp;${r0(r.rng.tq)}&nbsp;%${limTxt(r.rng.tag)}`;
     // Best endurance
     box('End', r.end);
     const hE = usable / r.end.ff;
-    $('mainEnd').textContent = `${hm(hE)} até a reserva`;
-    $('subEnd').innerHTML = `${rate(r.end.ff)}<br>TAS&nbsp;${r0(r.end.tas)} · TQ&nbsp;${r0(r.end.tq)}&nbsp;% · ${r0(hE * r.end.gs)}&nbsp;NM${limTxt(r.end.tag)}`;
+    $('mainEnd').textContent = `${hm(hE)} · ${r0(hE * r.end.gs)} NM até a reserva`;
+    $('subEnd').innerHTML = `${rate(r.end.ff)}<br>TAS&nbsp;${r0(r.end.tas)} · TQ&nbsp;${r0(r.end.tq)}&nbsp;%${limTxt(r.end.tag)}`;
     // Recommended cruise
     if (r.rec && !r.rec.out) {
       box('Rec', r.rec);
       const h = usable / r.rec.ff;
-      $('mainRec').textContent = `${r0(h * r.rec.gs)} NM · ${hm(h)}`;
+      $('mainRec').textContent = `${r0(h * r.rec.gs)} NM · ${hm(h)} até a reserva`;
       $('subRec').innerHTML = `${rate(r.rec.ff)}<br>TAS&nbsp;${r0(r.rec.tas)} · TQ&nbsp;${r0(r.rec.tq)}&nbsp;%${limTxt(r.rec.tag)}`;
     } else box('Rec', null, 'Fora da carta');
     // Agora
     if (s.inp.ias != null && r.cur && !r.cur.out) {
       box('Cur', r.cur);
       const h = usable / r.cur.ff;
-      $('mainCur').textContent = `${hm(h)} · ${r0(h * r.cur.gs)} NM`;
+      $('mainCur').textContent = `${hm(h)} · ${r0(h * r.cur.gs)} NM até a reserva`;
       const exw = r.cur.extrap ? r.cur.extrap.reduce((a, x) => a + x.w, 0) : 0;
-      const ex = !r.cur.extrap ? '' : exw >= 0.25
-        ? `<span class="flag">Acima da MCP na carta de ${r.cur.extrap[0].oat} °C: curva prolongada</span>`
-        : `<br><span class="note-inline">Carta de ${r.cur.extrap[0].oat} °C prolongada além da MCP (peso ${r0(exw * 100)} % na interpolação).</span>`;
+      const exOats = r.cur.extrap ? [...new Set(r.cur.extrap.map((x) => x.oat))].join(' e ') : '';
+      const mxTxt = r.cur.tag === 'MCP' && r.cur.maxIas != null ? ` (máx. ≈ ${r0(r.cur.maxIas)} KIAS)` : '';
+      const ex = (r.cur.tag ? `<span class="flag">Acima da ${r.cur.tag} na condição atual${mxTxt}</span>` : '') +
+        (r.cur.extrap ? `<br><span class="note-inline">Carta de ${exOats} °C prolongada além da ponta (peso ${r0(exw * 100)} % na interpolação).</span>` : '');
       $('subCur').innerHTML = `${rate(r.cur.ff)}<br>TAS&nbsp;${r0(r.cur.tas)} · GS&nbsp;${r0(r.cur.gs)} · TQ&nbsp;${r0(r.cur.tq)}&nbsp;%${ex}`;
     } else if (s.inp.ias != null) {
-      box('Cur', null, r.cur && r.cur.out === 'acima' ? 'IAS acima do limite da carta (VNE/MCP)' : 'IAS fora da escala da carta');
+      const mx = r.cur && r.cur.maxIas != null ? ` Máximo na MCP ≈ ${r0(r.cur.maxIas)} KIAS.` : '';
+      const msg = !r.cur ? 'IAS fora da carta'
+        : r.cur.out === 'acima' ? `${s.inp.ias} KIAS passa da MCP nesta condição.${mx}`
+        : r.cur.out === 'abaixo' ? 'IAS abaixo do início da curva da carta'
+        : 'IAS fora da escala da carta';
+      box('Cur', null, msg);
     } else box('Cur', null, 'Informe a IAS atual');
 
     renderSuggestion();
