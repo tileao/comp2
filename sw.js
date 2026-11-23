@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aw139-companion-root-v48';
+const CACHE_NAME = 'aw139-companion-root-v49';
 const PRECACHE = [
   "./",
   "./README.md",
@@ -70,6 +70,11 @@ const PRECACHE = [
   "./pouso-offshore/index.html",
   "./pouso-offshore/app.js",
   "./pouso-offshore/styles.css",
+  "./combustivel/index.html",
+  "./combustivel/app.js",
+  "./combustivel/engine.js",
+  "./combustivel/cruise-data.js",
+  "./combustivel/styles.css",
   "./decolagem-offshore/index.html",
   "./decolagem-offshore/app.js",
   "./decolagem-offshore/styles.css",
