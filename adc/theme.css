@@ -86,7 +86,6 @@ html:not(.adc-embed) .decision-table,
 html:not(.adc-embed) .decision-table thead th{background:transparent !important}
 html:not(.adc-embed) .decision-table thead th{color:var(--app-muted) !important}
 html:not(.adc-embed) .decision-table td{font-size:14px}
-html:not(.adc-embed) .decision-table td.empty-row{color:var(--app-muted);text-align:left;padding:16px 14px}
 
 @media (max-width:767px){
   html:not(.adc-embed) .topbar{margin:8px 8px 0 !important}
