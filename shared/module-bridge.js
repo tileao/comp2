@@ -14,6 +14,8 @@
   function getIf(id){ const el=document.getElementById(id); return el?el.value:null; }
   function mapRtoConfig(v){ return ({standard:'standard', eaps_off:'eapsOff', eaps_on:'eapsOn', ibf:'ibfInstalled'})[v] || v || 'standard'; }
   function applyContext(){
+    // Avulso, o módulo abre com os campos vazios; embutido no Cat A recebe os dados dele.
+    if(!isEmbed) return;
     const ctx=loadCtx();
     if(mod==='wat' || mod==='rto'){
       setIf('pressureAltitude', ctx.pressureAltitudeFt);

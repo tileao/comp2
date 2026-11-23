@@ -370,6 +370,25 @@
     window.dispatchEvent(new CustomEvent('aw139-pwa-state', { detail: state }));
   });
 
+  // Ao tocar num campo com valor, o valor fica todo selecionado: o piloto já digita por cima.
+  const SELECTABLE_TYPES = new Set(['text', 'number', 'tel', 'search', 'decimal', '']);
+  document.addEventListener('focusin', (event) => {
+    const el = event.target;
+    if (!(el instanceof HTMLInputElement) || el.readOnly || el.disabled) return;
+    if (!SELECTABLE_TYPES.has((el.getAttribute('type') || '').toLowerCase()) || !el.value) return;
+    const selectAll = () => {
+      if (document.activeElement !== el) return;
+      try { el.setSelectionRange(0, el.value.length); } catch (_) { el.select(); }
+    };
+    selectAll();
+    // O toque/clique posiciona o cursor depois do focus (iOS e desktop): seleciona de novo.
+    window.setTimeout(selectAll, 0);
+    window.setTimeout(selectAll, 60);
+    const keepSelection = (e) => e.preventDefault();
+    el.addEventListener('mouseup', keepSelection, { once: true });
+    window.setTimeout(() => el.removeEventListener('mouseup', keepSelection), 500);
+  });
+
   if (navigator.serviceWorker) {
     let controlled = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {

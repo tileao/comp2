@@ -348,7 +348,9 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
 
     let baseLibrary = Object.fromEntries(Object.entries(mergedLibrary()).map(([id, pack]) => [id, normalizeBasePack(pack)]));
     const currentGeometry = loadGeometry();
-    const persisted = loadUiState();
+    // Avulso (fora do Cat A) o ADC abre sempre com os campos vazios.
+    const IS_EMBED = new URLSearchParams(location.search).get('embed') === '1';
+    const persisted = IS_EMBED ? loadUiState() : {};
     const state = {
       currentBaseId: persisted.currentBaseId && baseLibrary[persisted.currentBaseId] ? persisted.currentBaseId : 'SBNF',
       currentRunwayId: persisted.currentRunwayId || null,
@@ -898,8 +900,20 @@ const GEOM_KEY = 'aw139_adc_geometry_v49';
       const dep = parsed.dep || state.departureEnd;
       const base = currentBase();
       const runway = currentRunway(base);
-      const rto = Number(document.getElementById('rtoInput').value || 0);
+      const rtoRaw = String(document.getElementById('rtoInput').value ?? '').trim();
+      const rto = Number(rtoRaw || 0);
       state.departureEnd = dep;
+      if (!IS_EMBED && rtoRaw === '') {
+        // Sem RTO não há decisão: mostra só a carta e a ASDA da cabeceira.
+        state.analysis = null;
+        renderLibraryStatus();
+        renderBaseInfo();
+        renderDeclaredInputs();
+        document.getElementById('decisionTable').innerHTML = '<tr><td colspan="3" class="empty-row">Informe o RTO e toque em Analisar ADC.</td></tr>';
+        draw();
+        saveUiState();
+        return;
+      }
       const engine = ENGINE_REGISTRY[base.engineId] || ENGINE_REGISTRY.adc_generic_v1;
       state.analysis = engine.analyze({ base, runway, dep, rto });
       renderLibraryStatus();
@@ -2162,7 +2176,7 @@ window.addEventListener('resize', () => {
     setCurrentBase(state.currentBaseId);
     if (persisted.rto) document.getElementById('rtoInput').value = persisted.rto;
     syncAdvancedPanel();
-    if (!readExternalInbox()) analyze();
+    if (!IS_EMBED || !readExternalInbox()) analyze();
     scheduleLayoutPasses();
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(scheduleLayoutPasses).catch(() => {});

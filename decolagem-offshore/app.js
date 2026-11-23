@@ -70,13 +70,8 @@ function render(){
   else if(tab==='wat')drawWAT();
 }
 function restore(){
-  try{
-    const s=JSON.parse(localStorage.getItem('aw139_offshore_takeoff_v1')||'null');
-    if(!s){requestAnimationFrame(()=>drawWAT());return;}
-    if(s.qnh!=null)$('qnh').value=s.qnh;if(s.elev!=null)$('elevation').value=s.elev;$('oat').value=s.oat;if($('weightUnit')&&s.weightUnit)$('weightUnit').value=s.weightUnit;$('weight').value=s.wRaw!=null?s.wRaw:s.w;$('wind').value=s.hw;$('aircraft').value=String(s.ac);$('procedure').value=s.proc;$('config').value=s.cfg;updateWeightUi();
-    state.last=s;
-    requestAnimationFrame(()=>render());
-  }catch{}
+  // O app abre sempre com os campos vazios: não restaura o último cálculo.
+  requestAnimationFrame(()=>drawWAT());
 }
 function openFS(){
   const tab=activeTab();

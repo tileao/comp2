@@ -989,27 +989,6 @@ function pushSharedContext(input, patch = {}) {
   saveCtx(merged);
 }
 
-function restoreInputsFromContext() {
-  const ctx = loadCtx();
-  if (ctx.adcBase) els.base.value = ctx.adcBase;
-  selectDepartureOption(els.departure, ctx.adcDepartureToken || ctx.adcDepartureEnd || '', ctx.adcDepartureEnd || '');
-  if (ctx.cataAircraftSet) els.aircraftSet.value = ctx.cataAircraftSet;
-  if (ctx.cataConfiguration) els.config.value = ctx.cataConfiguration;
-  if (ctx.aircraftRegistration && els.registration) els.registration.value = ctx.aircraftRegistration;
-  if (ctx.qnh != null && els.qnh) els.qnh.value = String(ctx.qnh);
-  if (ctx.oatC != null) els.oat.value = String(ctx.oatC);
-  if (ctx.cataWeightUnit) setWeightUnit(ctx.cataWeightUnit, false);
-  if (ctx.cataWeightRaw != null) {
-    els.weight.value = String(ctx.cataWeightRaw);
-  } else if (ctx.weightKg != null) {
-    els.weight.value = String(weightFromKg(ctx.weightKg, weightUnit));
-  }
-  if (ctx.windDirMag != null && els.windDir) els.windDir.value = String(ctx.windDirMag);
-  if (ctx.windSpeedKt != null && els.windSpeed) els.windSpeed.value = String(ctx.windSpeedKt);
-  if (ctx.cataVizMode) els.visualSelect.value = ctx.cataVizMode;
-  updateCalcDisplay();
-}
-
 async function runWAT(input) {
   const doc = await waitForIframe(watFrame, ['procedure', 'configuration', 'pressureAltitude', 'oat', 'actualWeight', 'headwind', 'runBtn', 'maxWeight', 'margin']);
   setRadio(doc, 'aircraftSet', input.aircraftSet || '6800');
@@ -1341,29 +1320,6 @@ async function refreshAdcDecisionForSelection(reason = 'seleção alterada') {
     if (seq !== vizRuntime.adcDecisionSeq) return;
     syncAdcSelection({ renderPreviewIfActive: true }).catch(console.warn);
   }
-}
-
-function restoreSavedResults() {
-  const ctx = loadCtx();
-  const snap = ctx?.cataLastResults;
-  if (!snap?.wat || !snap?.rto || !snap?.adc) return false;
-  const current = collectInputs();
-  const saved = snap.input || {};
-  const sameInput = [
-    current.base === saved.base,
-    current.departureEnd === saved.departureEnd,
-    current.runwayId === saved.runwayId,
-    current.aircraftSet === saved.aircraftSet,
-    current.configuration === saved.configuration,
-    Number(current.pressureAltitudeFt || 0) === Number(saved.pressureAltitudeFt || 0),
-    Number(current.oatC || 0) === Number(saved.oatC || 0),
-    Number(current.weightKg || 0) === Number(saved.weightKg || 0),
-    Number(current.headwindKt || 0) === Number(saved.headwindKt || 0)
-  ].every(Boolean);
-  if (!sameInput) return false;
-  adcPreviewState.payload = snap?.adc?.payload || null;
-  renderResults(snap.wat, snap.rto, snap.adc);
-  return true;
 }
 
 function toggleVizFullscreen(force = null) {
@@ -2701,13 +2657,12 @@ window.addEventListener('load', async () => {
       waitForIframe(rtoFrame, ['configuration', 'runBtn'])
     ]);
     await populateBaseOptions();
-    restoreInputsFromContext();
+    // O app abre sempre com os campos vazios: não restaura a sessão anterior.
+    updateCalcDisplay();
     await syncAdcSelection({ renderPreviewIfActive: false });
     clearAdcDirty();
-    const hadSavedResults = restoreSavedResults();
     await Promise.all([prepareEmbeddedView('adc'), prepareEmbeddedView('wat'), prepareEmbeddedView('rto')]);
     if (els.visualSelect.value) setVisualization(els.visualSelect.value, true);
-    else if (hadSavedResults) setVisualization('adc', true);
   } catch (error) {
     console.error('Falha ao inicializar integração', error);
   }
