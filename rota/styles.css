@@ -1,0 +1,28 @@
+/* ---------- Rota (teste) — complementa ../combustivel/styles.css ---------- */
+.lab-tag{display:inline-block;vertical-align:middle;margin-left:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#f4e0b2;background:rgba(217,164,65,.16);border:1px solid rgba(217,164,65,.4);border-radius:999px;padding:2px 8px}
+.route-input{text-transform:uppercase;letter-spacing:.02em}
+.route-input::placeholder{text-transform:none;letter-spacing:0}
+.route-info{font-size:12px;line-height:1.45;color:#A9B8C8;margin:-2px 0 8px;min-height:16px}
+.ri-err{color:#ffb4b4}
+.ri-warn{color:#f4e0b2}
+#depInfo{margin:-2px 0 8px}
+.adv-body{padding:2px 12px 10px}
+.adv .adv-body .helper{padding:0;margin-top:4px}
+#boxIda{--rc:#46C2BA}
+#boxVolta{--rc:#b39dfa}
+.result-box.regime .near{display:block;margin-top:4px;font-size:11px;color:#c9d6e2}
+.result-band.bad{border-left-color:var(--bad)}
+.result-band .warn-line{display:block;margin-top:6px;color:#f4e0b2;font-size:12px}
+.dir-head{margin:16px 0 6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--rc,#46C2BA)}
+.dir-head:first-child{margin-top:0}
+.dir-head.volta{--rc:#b39dfa}
+.dir-head small{display:block;margin-top:2px;font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;color:#A9B8C8}
+.dir-wrap{--rc:#46C2BA}
+.dir-wrap.volta{--rc:#b39dfa}
+.fuel-table tr.best td{background:rgba(70,194,186,.10)}
+.dir-wrap.volta .fuel-table tr.best td{background:rgba(179,157,250,.10)}
+.fuel-table tr.best td:first-child{box-shadow:inset 3px 0 0 var(--rc,#46C2BA)}
+.fuel-table tr.best td.best-r{color:var(--rc,#46C2BA)}
+.fuel-table .near-tag{display:inline-block;margin-left:6px;font-size:10px;font-weight:800;color:#c9d6e2}
+.fuel-table tr.sum td{font-weight:800;border-bottom:0}
+.run-btn:disabled{opacity:.65;cursor:default}

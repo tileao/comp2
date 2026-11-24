@@ -31,3 +31,12 @@ Fluxo de cruzeiro AEO: consumo em lb e kg, best range, best endurance, recommend
 - **Limites:** só 4.400 a 6.800 kg (não há carta de cruzeiro para 7.000 kg); OAT e PA dentro das cartas; não inclui subida, descida nem sangramento de ar. O fuel flow indicado do motor não serve para planejamento (RFM Seção 1).
 - **Testes:** `node tools/cruise/test_engine.js` confere com os exemplos do RFM (p. 9-3, 9-5, 9-6) e com as tabelas FUEL CONSUMPTION do QRH I02 R31 (6.400 kg: erro médio 0,6 kg/h).
 
+## Rota (teste, `/rota`)
+Página de teste, sem link na Home. A rota é digitada como no FMS (ex.: `SBJR DIBIL KZ208 ITEKI 9PMO`); o app busca o vento e a temperatura previstos por nível e mostra o melhor nível na ida e na volta, com combustível e tempo.
+
+- **Base:** `rota/nav-data.js`, só de fontes públicas: bases (AIP Brasil / ROTAER), UM (portarias da ANAC no DOU) e Bacia de Santos (CIRCEA 100-109 e Carta Especial de 28 NOV 24: pontos e aerovias KZ, de mão única). Gerada por `tools/rota/build_nav.py`. Bacia de Campos: por enquanto só a UM, sem aerovias.
+- **Níveis:** na Bacia de Santos, os da CIRCEA 100-109 (2.4.3): ida FL025, FL045, FL065 e FL085; volta FL035, FL055, FL075 e FL095. Fora dela, 1000 a 8000 ft com o QNH.
+- **Vento:** previsão de modelo do Open-Meteo nos níveis de 1000 a 700 hPa, interpolada no tempo e em ln p, um ponto a cada ~30 NM. Não é produto oficial: conferir na REDEMET. A última resposta fica guardada para uso sem rede.
+- **Consumo:** o motor do fluxo Combustível em cada perna, com o vento e a OAT do nível; best range ou 150 KTAS. Na UM, 9 lb/min em FLIGHT (OM-B I01 R00, 0.21). Não inclui partida e táxi, subida e descida, alternativa nem contingência.
+- **Testes:** `node tools/rota/test_rota.js`.
+

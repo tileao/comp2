@@ -84,7 +84,7 @@
   function serviceWorkerConfig(){
     const path = pagePath();
     // Um único service worker para o app inteiro (ele já guarda os arquivos de WAT e RTO).
-    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/combustivel/')) return { url: '../sw.js', scope: '../' };
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/combustivel/') || path.includes('/rota/')) return { url: '../sw.js', scope: '../' };
     return { url: 'sw.js', scope: './' };
   }
 
@@ -186,7 +186,7 @@
 
   function launchIconPath(){
     const path = pagePath();
-    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/combustivel/')) return '../assets/icon-192.png';
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/combustivel/') || path.includes('/rota/')) return '../assets/icon-192.png';
     return 'assets/icon-192.png';
   }
 
@@ -245,7 +245,7 @@
 
   function basePrefix(){
     const path = pagePath();
-    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/dropdown/') || path.includes('/pouso-offshore/') || path.includes('/decolagem-offshore/') || path.includes('/combustivel/')) return '../';
+    if (path.includes('/cata/') || path.includes('/adc/') || path.includes('/wat/') || path.includes('/rto/') || path.includes('/dropdown/') || path.includes('/pouso-offshore/') || path.includes('/decolagem-offshore/') || path.includes('/combustivel/') || path.includes('/rota/')) return '../';
     return './';
   }
 
